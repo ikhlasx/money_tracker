@@ -1,11 +1,17 @@
 import { useState, useMemo, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { AlertTriangle, TrendingUp, BarChart2, Calendar, Award } from 'lucide-react'
+import { AlertTriangle, TrendingUp, BarChart2, Calendar, Award, PieChart, TrendingDown } from 'lucide-react'
+import TransactionModal from './TransactionModal'
 
 export default function Reports({ transactions }) {
   const [categories, setCategories] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()) // 0-11
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalCategory, setModalCategory] = useState('')
+  const [modalType, setModalType] = useState('Income') // 'Income' or 'Expense'
 
   useEffect(() => {
     fetchCategories()
@@ -75,6 +81,28 @@ export default function Reports({ transactions }) {
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const years = Array.from(new Set(transactions.map(t => new Date(t.txn_date).getFullYear()))).sort((a, b) => b - a)
   if (years.length === 0) years.push(new Date().getFullYear())
+
+  // 4. All-Time Category Stats
+  const allTimeStatsByCategory = useMemo(() => {
+    const stats = {}
+    transactions.forEach(t => {
+      if (t.type !== 'Income' && t.type !== 'Expense') return
+      if (!stats[t.category]) stats[t.category] = { Income: 0, Expense: 0 }
+      stats[t.category][t.type] += Number(t.amount)
+    })
+    return stats
+  }, [transactions])
+
+  const handleOpenModal = (category, type) => {
+    setModalCategory(category)
+    setModalType(type)
+    setIsModalOpen(true)
+  }
+
+  const modalTransactions = useMemo(() => {
+    if (!isModalOpen) return []
+    return transactions.filter(t => t.category === modalCategory && t.type === modalType).sort((a,b) => new Date(b.txn_date) - new Date(a.txn_date))
+  }, [isModalOpen, modalCategory, modalType, transactions])
 
   return (
     <div className="reports-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -207,6 +235,57 @@ export default function Reports({ transactions }) {
         )}
       </div>
 
+      {/* All-Time Overview */}
+      <div className="glass animate-fade-in" style={{ padding: '1.5rem', animationDelay: '0.3s' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <PieChart className="text-primary" size={20} />
+          <h3 className="text-h3">All-Time Overview by Category</h3>
+        </div>
+
+        {Object.keys(allTimeStatsByCategory).length === 0 ? (
+          <p className="text-muted">No transactions found.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
+            {Object.entries(allTimeStatsByCategory)
+              .sort((a, b) => (b[1].Expense + b[1].Income) - (a[1].Expense + a[1].Income))
+              .map(([catName, stats]) => (
+                <div key={catName} style={{ display: 'flex', flexDirection: 'column', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+                  <h4 className="text-body" style={{ fontWeight: '600', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{catName}</h4>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => handleOpenModal(catName, 'Income')}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'}
+                    >
+                      <span className="text-success" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}><TrendingUp size={16}/> Income</span>
+                      <span className="text-success" style={{ fontWeight: '600' }}>₹{stats.Income.toLocaleString()}</span>
+                    </button>
+                    
+                    <button 
+                      onClick={() => handleOpenModal(catName, 'Expense')}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                    >
+                      <span className="text-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}><TrendingDown size={16}/> Spent</span>
+                      <span className="text-danger" style={{ fontWeight: '600' }}>₹{stats.Expense.toLocaleString()}</span>
+                    </button>
+                  </div>
+                </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <TransactionModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        category={modalCategory}
+        type={modalType}
+        transactions={modalTransactions}
+      />
     </div>
   )
 }

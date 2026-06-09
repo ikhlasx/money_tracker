@@ -8,6 +8,8 @@ export default function BudgetSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [successMsg, setSuccessMsg] = useState('')
+  const [newCategory, setNewCategory] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
 
   useEffect(() => {
     fetchCategories()
@@ -67,6 +69,27 @@ export default function BudgetSettings() {
     }
   }
 
+  const handleAddCategory = async (e) => {
+    e.preventDefault()
+    if (!newCategory.trim()) return
+    setAddingCategory(true)
+    setError(null)
+    setSuccessMsg('')
+    try {
+      const { error } = await supabase.from('categories').insert([{ name: newCategory.trim(), monthly_budget: 0 }])
+      if (error) throw error
+      setNewCategory('')
+      fetchCategories()
+      setSuccessMsg('Category added successfully!')
+      setTimeout(() => setSuccessMsg(''), 3000)
+    } catch (err) {
+      console.error('Error adding category:', err)
+      setError('Failed to add category. It might already exist.')
+    } finally {
+      setAddingCategory(false)
+    }
+  }
+
   return (
     <div className="glass animate-fade-in" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -93,6 +116,20 @@ export default function BudgetSettings() {
       <p className="text-muted" style={{ marginBottom: '1rem', fontSize: '0.875rem' }}>
         Set a monthly budget limit for your expense categories to get cautioned when you exceed them.
       </p>
+
+      {/* Add New Category */}
+      <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', alignItems: 'center' }}>
+        <input 
+          type="text" 
+          placeholder="New Category Name" 
+          value={newCategory}
+          onChange={(e) => setNewCategory(e.target.value)}
+          required
+        />
+        <button type="submit" className="btn btn-primary" disabled={addingCategory}>
+          {addingCategory ? 'Adding...' : 'Add Category'}
+        </button>
+      </form>
 
       {loading ? (
         <div className="text-muted">Loading categories...</div>
