@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { Wallet, LogOut, ArrowUpCircle, ArrowDownCircle, Banknote, RefreshCcw, Building, LayoutDashboard, PieChart, Settings } from 'lucide-react'
+import { Wallet, LogOut, ArrowUpCircle, ArrowDownCircle, Banknote, RefreshCcw, Building, LayoutDashboard, PieChart, Settings, Menu, X } from 'lucide-react'
 import TransactionForm from './TransactionForm'
 import TransactionLog from './TransactionLog'
 import Reports from './Reports'
@@ -11,6 +11,7 @@ export default function Dashboard({ session }) {
   const [loading, setLoading] = useState(true)
   const [editData, setEditData] = useState(null)
   const [activeTab, setActiveTab] = useState('transactions') // 'transactions', 'reports', 'settings'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   // Stats
   const [income, setIncome] = useState(0)
@@ -70,11 +71,27 @@ export default function Dashboard({ session }) {
 
   return (
     <div className="app-container">
+      {/* Sidebar Overlay */}
+      <div 
+        className={`sidebar-overlay ${isSidebarOpen ? 'show' : ''}`} 
+        onClick={() => setIsSidebarOpen(false)}
+      ></div>
+
       {/* Sidebar */}
-      <aside className="sidebar glass-panel">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-          <Wallet color="#3b82f6" size={28} />
-          <h2 className="text-h3">MoneyTracker</h2>
+      <aside className={`sidebar glass-panel ${isSidebarOpen ? 'open' : ''}`}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Wallet color="#3b82f6" size={28} />
+            <h2 className="text-h3">MoneyTracker</h2>
+          </div>
+          <button 
+            className="btn" 
+            style={{ padding: '0.25rem', background: 'transparent', display: 'none' }} 
+            onClick={() => setIsSidebarOpen(false)}
+            id="close-sidebar-btn"
+          >
+            <X size={24} />
+          </button>
         </div>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -154,6 +171,20 @@ export default function Dashboard({ session }) {
 
       {/* Main Content */}
       <main className="main-content">
+        <div className="mobile-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Wallet color="#3b82f6" size={24} />
+            <h2 className="text-h3" style={{ margin: 0 }}>MoneyTracker</h2>
+          </div>
+          <button 
+            className="btn" 
+            style={{ padding: '0.5rem', background: 'transparent', color: 'var(--text-primary)' }} 
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <Menu size={24} />
+          </button>
+        </div>
+
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
             <h1 className="text-h1">
@@ -221,6 +252,12 @@ export default function Dashboard({ session }) {
         .nav-link.active {
           background: rgba(59, 130, 246, 0.15);
           color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+          #close-sidebar-btn {
+            display: block !important;
+          }
         }
       `}</style>
     </div>
