@@ -141,8 +141,8 @@ export default function Reports({ transactions }) {
                           <div 
                             className="progress-fill" 
                             style={{ 
-                              height: '100%', 
-                              width: \`\${percentage}%\`, 
+                              height: '100%',
+                              width: `${percentage}%`,
                               background: isOverBudget ? 'var(--danger)' : 'var(--accent)',
                               transition: 'width 0.5s ease-out'
                             }} 
