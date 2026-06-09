@@ -1,57 +1,53 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg-color: #0f172a;
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --bg-color: #0a0a0a;
   --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --card-bg: rgba(30, 41, 59, 0.7);
-  --card-border: rgba(255, 255, 255, 0.1);
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --accent: #ffffff;
   --success: #10b981;
   --danger: #ef4444;
-  --warning: #f59e0b;
-  --info: #0ea5e9;
   
-  --bank-iob: #3b82f6;
-  --bank-sbi: #8b5cf6;
-  --bank-cash: #10b981;
-  --bank-other: #f59e0b;
+  --card-1-bg: linear-gradient(145deg, #422d25 0%, #2a1a15 100%);
+  --card-2-bg: linear-gradient(145deg, #6b4c3a 0%, #3a2215 100%);
+  --card-3-bg: linear-gradient(145deg, #1f2937 0%, #0f172a 100%);
+  
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-hover: rgba(255, 255, 255, 0.1);
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
 }
 
 body {
-  background: var(--bg-gradient);
-  background-attachment: fixed;
+  background: var(--bg-color);
   color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
   min-height: 100vh;
   width: 100%;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphism Classes */
+h1, .font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
 .glass {
-  background: var(--card-bg);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 24px;
 }
 
-.glass-panel {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(16px);
-  border-right: 1px solid var(--card-border);
-}
+.card-1 { background: var(--card-1-bg); }
+.card-2 { background: var(--card-2-bg); }
+.card-3 { background: var(--card-3-bg); }
 
 /* Inputs & Buttons */
 input, select, button {
@@ -59,23 +55,25 @@ input, select, button {
 }
 
 input, select {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--card-border);
   color: white;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  padding: 1rem;
+  border-radius: 12px;
   outline: none;
   transition: all 0.2s ease;
+  width: 100%;
+  font-size: 1rem;
 }
 
 input:focus, select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  border-radius: 12px;
   border: none;
   font-weight: 600;
   cursor: pointer;
@@ -87,14 +85,13 @@ input:focus, select:focus {
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: white;
+  background: white;
+  color: black;
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
+  background: #f1f1f1;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .btn-danger {
@@ -105,12 +102,25 @@ input:focus, select:focus {
 .btn-danger:hover {
   background: #dc2626;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
 }
 
 /* Layout */
 .app-container {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100%;
   max-width: 100vw;
@@ -118,80 +128,70 @@ input:focus, select:focus {
   position: relative;
 }
 
-.sidebar {
-  width: 280px;
-  height: 100%;
-  padding: 1.5rem;
+.hero-section {
+  text-align: center;
+  padding: 3rem 1rem 2rem;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  transition: transform 0.3s ease;
-  z-index: 40;
-}
-
-.main-content {
-  flex: 1;
-  padding: 2rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  min-width: 0;
-}
-
-/* Mobile Sidebar Overlay */
-.sidebar-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 30;
-  backdrop-filter: blur(4px);
-}
-
-/* Mobile Header */
-.mobile-header {
-  display: none;
   align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--card-border);
-  z-index: 20;
+  gap: 0.5rem;
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.hero-title span {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.hero-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  padding: 1rem 2rem 2rem;
+  flex: 1;
+  overflow-y: auto;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.aesthetic-card {
+  border-radius: 24px;
+  padding: 1.5rem;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  min-height: 500px;
+}
+
+@media (max-width: 1024px) {
+  .cards-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    transform: translateX(-100%);
-    background: #0f172a; /* Solid background for mobile */
-    border-right: 1px solid var(--card-border);
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
-  .sidebar-overlay.show {
-    display: block;
-  }
-
-  .mobile-header {
-    display: flex;
-    margin: -1rem -1rem 1rem -1rem;
-    position: sticky;
-    top: -1rem;
-  }
-
-  .main-content {
+  .hero-title { font-size: 2.5rem; }
+  .cards-container {
+    grid-template-columns: 1fr;
     padding: 1rem;
+  }
+  .aesthetic-card {
+    min-height: 400px;
   }
 }
 

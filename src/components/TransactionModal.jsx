@@ -1,67 +1,167 @@
-import React from 'react'
-import { X, TrendingUp, TrendingDown } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { supabase } from '../supabaseClient'
+import { PlusCircle, X } from 'lucide-react'
 
-export default function TransactionModal({ isOpen, onClose, category, type, transactions }) {
-  if (!isOpen) return null
+export default function TransactionModal({ isOpen, onClose, fetchTransactions, editData, setEditData }) {
+  const [loading, setLoading] = useState(false)
+  const [categories, setCategories] = useState([])
+  
+  const [formData, setFormData] = useState({
+    txn_date: new Date().toISOString().split('T')[0],
+    type: 'Expense',
+    category: '',
+    desc: '',
+    amount: '',
+    bank: 'Cash'
+  })
 
-  const Icon = type === 'Income' ? TrendingUp : TrendingDown
-  const colorClass = type === 'Income' ? 'text-success' : 'text-danger'
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        txn_date: editData.txn_date,
+        type: editData.type,
+        category: editData.category,
+        desc: editData.desc || '',
+        amount: editData.amount,
+        bank: editData.bank || 'Cash'
+      })
+    } else {
+      setFormData({
+        txn_date: new Date().toISOString().split('T')[0],
+        type: 'Expense',
+        category: categories.length > 0 ? categories[0] : '',
+        desc: '',
+        amount: '',
+        bank: 'Cash'
+      })
+    }
+  }, [editData, categories, isOpen])
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase.from('categories').select('name')
+      if (!error && data) {
+        const cats = data.map(c => c.name)
+        setCategories(cats)
+        if (cats.length > 0 && !formData.category) {
+          setFormData(prev => ({ ...prev, category: cats[0] }))
+        }
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const payload = {
+        ...formData,
+        amount: parseFloat(formData.amount)
+      }
+
+      if (editData) {
+        await supabase.from('transactions').update(payload).eq('id', editData.id)
+      } else {
+        await supabase.from('transactions').insert([payload])
+      }
+
+      setEditData(null)
+      fetchTransactions()
+      onClose()
+    } catch (error) {
+      console.error(error)
+      alert('Error saving transaction: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen && !editData) return null
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.8)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '1rem'
-    }}>
-      <div className="glass animate-fade-in" style={{
-        width: '100%',
-        maxWidth: '500px',
-        maxHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        {/* Header */}
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Icon className={colorClass} size={24} />
-            <div>
-              <h3 className="text-h3" style={{ margin: 0 }}>{category}</h3>
-              <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>History of {type}</p>
+    <div className="modal-overlay">
+      <div className="glass" style={{ width: '100%', maxWidth: '500px', padding: '2rem', background: 'rgba(20,20,20,0.95)', position: 'relative' }}>
+        <button 
+          onClick={() => { setEditData(null); onClose() }}
+          style={{ position: 'absolute', right: '1.5rem', top: '1.5rem', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+        >
+          <X size={24} />
+        </button>
+
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2rem', marginBottom: '1.5rem', fontWeight: '600' }}>
+          {editData ? 'Edit Entry' : 'Record Entry'}
+        </h2>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Amount (₹)</label>
+              <input 
+                type="number" step="0.01" min="0" placeholder="0.00"
+                value={formData.amount} 
+                onChange={(e) => setFormData({...formData, amount: e.target.value})} 
+                required 
+                style={{ fontSize: '1.25rem', fontWeight: '500' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Date</label>
+              <input 
+                type="date" 
+                value={formData.txn_date} 
+                onChange={(e) => setFormData({...formData, txn_date: e.target.value})} 
+                required 
+              />
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem' }}
-          >
-            <X size={20} />
-          </button>
-        </div>
 
-        {/* List */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {transactions.length === 0 ? (
-            <p className="text-muted" style={{ textAlign: 'center', padding: '2rem 0' }}>No transactions found.</p>
-          ) : (
-            transactions.map(txn => (
-              <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span className="text-body" style={{ fontWeight: '500' }}>{txn.desc || txn.category}</span>
-                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>{new Date(txn.txn_date).toLocaleDateString()} • {txn.bank}</span>
-                </div>
-                <span className={colorClass} style={{ fontWeight: '600' }}>
-                  ₹{Number(txn.amount).toLocaleString()}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Type</label>
+              <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
+                <option value="Income">Income</option>
+                <option value="Expense">Expense</option>
+                <option value="Money to Get">Money to Get</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Account</label>
+              <select value={formData.bank} onChange={(e) => setFormData({...formData, bank: e.target.value})}>
+                <option value="Cash">Cash</option>
+                <option value="IOB">IOB</option>
+                <option value="FED">FED</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Category</label>
+            <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} required>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Description (Optional)</label>
+            <input 
+              type="text" placeholder="e.g. Groceries"
+              value={formData.desc} 
+              onChange={(e) => setFormData({...formData, desc: e.target.value})} 
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: '1rem', padding: '1rem', fontSize: '1.125rem' }}>
+            {loading ? 'Saving...' : (editData ? 'Save Changes' : 'Record Transaction')}
+          </button>
+        </form>
       </div>
     </div>
   )
