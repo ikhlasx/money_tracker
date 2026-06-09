@@ -249,12 +249,12 @@ export default function Dashboard({ session }) {
         )}
       </main>
 
-      {/* Bottom Nav (Mobile) */}
-      <nav className="lg:hidden fixed bottom-0 w-full z-30 flex justify-around items-center px-6 py-4 bg-surface/80 backdrop-blur-2xl border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] rounded-t-3xl">
+      {/* Bottom Nav (Mobile) — 2 left | FAB center | 2 right */}
+      <nav className="lg:hidden fixed bottom-0 w-full z-30 flex justify-around items-center px-4 py-4 bg-surface/80 backdrop-blur-2xl border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] rounded-t-3xl">
+        {/* Left two */}
         {[
           { id: 'transactions', icon: 'account_balance_wallet' },
           { id: 'reports',      icon: 'analytics'              },
-          { id: 'calendar',     icon: 'calendar_month'         },
         ].map(item => (
           <button
             key={item.id}
@@ -265,7 +265,8 @@ export default function Dashboard({ session }) {
           </button>
         ))}
 
-        <div className="relative -top-6">
+        {/* Centre FAB */}
+        <div className="relative -top-5">
           <button
             className="w-14 h-14 bg-white text-surface-container-lowest rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-transform shadow-white/20"
             onClick={() => setActiveTab('transactions')}
@@ -274,19 +275,19 @@ export default function Dashboard({ session }) {
           </button>
         </div>
 
-        <button
-          className={`flex flex-col items-center justify-center rounded-full w-12 h-12 active:scale-90 transition-all duration-300 ease-out ${activeTab === 'settings' ? 'bg-white/15 text-primary' : 'text-on-surface-variant hover:bg-white/5'}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          <span className="material-symbols-outlined" style={{ fontVariationSettings: activeTab === 'settings' ? "'FILL' 1" : "'FILL' 0" }}>settings</span>
-        </button>
-
-        <button
-          className="flex flex-col items-center justify-center text-on-surface-variant w-12 h-12 hover:bg-white/5 rounded-full active:scale-90 transition-all duration-300 ease-out"
-          onClick={toggleDrawer}
-        >
-          <span className="material-symbols-outlined">person</span>
-        </button>
+        {/* Right two */}
+        {[
+          { id: 'calendar', icon: 'calendar_month' },
+          { id: 'settings', icon: 'settings'       },
+        ].map(item => (
+          <button
+            key={item.id}
+            className={`flex flex-col items-center justify-center rounded-full w-12 h-12 active:scale-90 transition-all duration-300 ease-out ${activeTab === item.id ? 'bg-white/15 text-primary' : 'text-on-surface-variant hover:bg-white/5'}`}
+            onClick={() => setActiveTab(item.id)}
+          >
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: activeTab === item.id ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+          </button>
+        ))}
       </nav>
     </>
   )
