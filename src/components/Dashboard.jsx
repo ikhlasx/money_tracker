@@ -191,37 +191,6 @@ export default function Dashboard({ session }) {
       {/* Main Content */}
       <main className="lg:ml-80 max-w-[1200px] mx-auto px-container-padding-mobile py-stack-md lg:py-stack-lg min-h-[calc(100vh-64px)] pb-24 lg:pb-stack-lg">
 
-        {/* Stat Bento Tiles — always visible */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-gutter mb-stack-md">
-          {statTiles.map(tile => (
-            <div key={tile.label} className={`${tile.card} rounded-3xl p-5 flex flex-col justify-between min-h-[110px] cursor-default`}>
-              <span className={`material-symbols-outlined text-2xl ${tile.iconColor}`}>{tile.icon}</span>
-              <div>
-                <p className={`text-label-caps mb-0.5 ${tile.labelColor}`}>{tile.label}</p>
-                <p className={`text-lg font-bold leading-tight ${tile.valueColor}`}>{tile.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bank Balance Tiles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter mb-stack-md">
-          {Object.entries(bankBalances).map(([bank, bal], idx) => {
-            const c = bankColors[idx % bankColors.length]
-            return (
-              <div key={bank} className={`${c.card} rounded-2xl p-4 flex flex-col justify-between min-h-[90px]`}>
-                <span className={`material-symbols-outlined text-xl ${c.icon}`}>account_balance</span>
-                <div>
-                  <p className={`text-label-caps mb-0.5 ${c.label}`}>{bank.toUpperCase()}</p>
-                  <p className={`text-base font-bold ${c.value}`}>
-                    ₹{bal.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
         {/* Tab Content */}
         {activeTab === 'transactions' && (
           <div className="animate-fade-in">
@@ -232,6 +201,37 @@ export default function Dashboard({ session }) {
 
         {activeTab === 'reports' && (
           <div className="animate-fade-in">
+            {/* Stat Bento Tiles */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-gutter mb-stack-md">
+              {statTiles.map(tile => (
+                <div key={tile.label} className={`${tile.card} rounded-3xl p-5 flex flex-col justify-between min-h-[110px] cursor-default`}>
+                  <span className={`material-symbols-outlined text-2xl ${tile.iconColor}`}>{tile.icon}</span>
+                  <div>
+                    <p className={`text-label-caps mb-0.5 ${tile.labelColor}`}>{tile.label}</p>
+                    <p className={`text-lg font-bold leading-tight ${tile.valueColor}`}>{tile.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bank Balance Tiles */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter mb-stack-md">
+              {Object.entries(bankBalances).map(([bank, bal], idx) => {
+                const c = bankColors[idx % bankColors.length]
+                return (
+                  <div key={bank} className={`${c.card} rounded-2xl p-4 flex flex-col justify-between min-h-[90px]`}>
+                    <span className={`material-symbols-outlined text-xl ${c.icon}`}>account_balance</span>
+                    <div>
+                      <p className={`text-label-caps mb-0.5 ${c.label}`}>{bank.toUpperCase()}</p>
+                      <p className={`text-base font-bold ${c.value}`}>
+                        ₹{bal.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
             <Reports transactions={transactions} />
           </div>
         )}
