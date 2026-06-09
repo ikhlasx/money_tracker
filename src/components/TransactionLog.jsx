@@ -1,7 +1,7 @@
-import { Trash2, Edit2 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
 export default function TransactionLog({ transactions, fetchTransactions, setEditData }) {
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return
 
@@ -10,60 +10,95 @@ export default function TransactionLog({ transactions, fetchTransactions, setEdi
       if (error) throw error
       fetchTransactions()
     } catch (error) {
-      console.error(error)
+      console.error('Error deleting transaction', error)
       alert('Error deleting: ' + error.message)
     }
   }
 
+  const getIconForCategory = (category, type) => {
+    if (type === 'Income') return 'payments'
+    if (type === 'Money to Get') return 'trending_up'
+    const cat = category?.toLowerCase() || ''
+    if (cat.includes('food') || cat.includes('grocery')) return 'restaurant'
+    if (cat.includes('transport') || cat.includes('fuel')) return 'local_gas_station'
+    if (cat.includes('shop')) return 'shopping_bag'
+    if (cat.includes('bill') || cat.includes('utilit')) return 'receipt_long'
+    if (cat.includes('health') || cat.includes('medic')) return 'medical_services'
+    if (cat.includes('entert')) return 'movie'
+    return 'account_balance_wallet'
+  }
+
   return (
-    <div className="aesthetic-card card-3">
-      <h3 style={{ fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', marginBottom: '2rem' }}>
-        Recent Transactions
-      </h3>
+    <div className="card-tint-primary rounded-3xl p-6 lg:p-8 flex flex-col lg:min-h-[600px]">
+      <div className="flex items-center justify-between mb-6 shrink-0">
+        <h2 className="text-headline-md font-headline-md text-primary flex items-center gap-2">
+          <span className="material-symbols-outlined text-secondary">list_alt</span>
+          Recent Transactions
+        </h2>
+      </div>
       
-      {transactions.length === 0 ? (
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>No transactions found.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
-          {transactions.slice(0, 15).map(t => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ 
-                  width: '40px', height: '40px', borderRadius: '50%', 
-                  background: t.type === 'Expense' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                  color: t.type === 'Expense' ? 'var(--danger)' : 'var(--success)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.875rem'
-                }}>
-                  {t.type === 'Expense' ? '-' : '+'}
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.25rem' }}>{t.category}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
-                    {new Date(t.txn_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} • {t.bank || 'Cash'}
+      <div className="overflow-y-auto no-scrollbar flex-1 -mx-6 px-6">
+        {transactions.length === 0 ? (
+          <p className="text-on-surface-variant text-center py-8">No transactions found.</p>
+        ) : (
+          <div className="flex flex-col gap-4 pb-4">
+            {transactions.map(t => {
+              const isIncome = t.type === 'Income'
+              const isMTG = t.type === 'Money to Get'
+              const amountColor = isIncome ? 'text-[#009668]' : (isMTG ? 'text-[#0058be]' : 'text-error')
+              const sign = isIncome ? '+' : (isMTG ? '' : '-')
+              const icon = getIconForCategory(t.category, t.type)
+
+              let iconBg = 'bg-surface-container-high text-on-surface-variant'
+              if (isIncome) iconBg = 'bg-[#009668]/10 text-[#009668]'
+              else if (isMTG) iconBg = 'bg-[#0058be]/10 text-[#0058be]'
+              else iconBg = 'bg-error/10 text-error'
+
+              return (
+                <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-surface-container-lowest transition-colors group cursor-pointer border border-transparent hover:border-outline-variant/30 shadow-sm hover:shadow-md">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+                      <span className="material-symbols-outlined">{icon}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-body-lg font-bold text-on-surface">{t.category}</h3>
+                      <p className="text-body-sm text-on-surface-variant flex gap-2">
+                        <span>{t.type}</span>•<span>{t.bank || 'Cash'}</span>
+                      </p>
+                      {t.desc && <p className="text-label-caps text-outline mt-1 truncate max-w-[150px] sm:max-w-xs">{t.desc}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right flex items-center gap-2 sm:gap-4">
+                    <div>
+                      <p className={`text-body-lg font-bold ${amountColor}`}>
+                        {sign}₹{t.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-body-sm text-on-surface-variant">
+                        {new Date(t.txn_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                    <div className="opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity flex flex-col sm:flex-row gap-1">
+                      <button 
+                        onClick={() => setEditData(t)}
+                        className="p-2 text-outline hover:text-secondary hover:bg-secondary/10 rounded-full transition-colors"
+                        title="Edit"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">edit</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(t.id)}
+                        className="p-2 text-outline hover:text-error hover:bg-error/10 rounded-full transition-colors"
+                        title="Delete"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">delete</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-                  ₹{t.amount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setEditData(t)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: '0' }}>
-                    <Edit2 size={14} />
-                  </button>
-                  <button onClick={() => handleDelete(t.id)} style={{ background: 'none', border: 'none', color: 'rgba(239, 68, 68, 0.8)', cursor: 'pointer', padding: '0' }}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      <div style={{ marginTop: 'auto', paddingTop: '1.5rem' }}>
-        <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>Transaction History</h4>
-        <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>View and manage your recent activity.</p>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

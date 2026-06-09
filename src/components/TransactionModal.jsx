@@ -1,167 +1,55 @@
-import React, { useState, useEffect } from 'react'
-import { supabase } from '../supabaseClient'
-import { PlusCircle, X } from 'lucide-react'
+import React from 'react'
 
-export default function TransactionModal({ isOpen, onClose, fetchTransactions, editData, setEditData }) {
-  const [loading, setLoading] = useState(false)
-  const [categories, setCategories] = useState([])
-  
-  const [formData, setFormData] = useState({
-    txn_date: new Date().toISOString().split('T')[0],
-    type: 'Expense',
-    category: '',
-    desc: '',
-    amount: '',
-    bank: 'Cash'
-  })
+export default function TransactionModal({ isOpen, onClose, category, type, transactions }) {
+  if (!isOpen) return null
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  useEffect(() => {
-    if (editData) {
-      setFormData({
-        txn_date: editData.txn_date,
-        type: editData.type,
-        category: editData.category,
-        desc: editData.desc || '',
-        amount: editData.amount,
-        bank: editData.bank || 'Cash'
-      })
-    } else {
-      setFormData({
-        txn_date: new Date().toISOString().split('T')[0],
-        type: 'Expense',
-        category: categories.length > 0 ? categories[0] : '',
-        desc: '',
-        amount: '',
-        bank: 'Cash'
-      })
-    }
-  }, [editData, categories, isOpen])
-
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase.from('categories').select('name')
-      if (!error && data) {
-        const cats = data.map(c => c.name)
-        setCategories(cats)
-        if (cats.length > 0 && !formData.category) {
-          setFormData(prev => ({ ...prev, category: cats[0] }))
-        }
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const payload = {
-        ...formData,
-        amount: parseFloat(formData.amount)
-      }
-
-      if (editData) {
-        await supabase.from('transactions').update(payload).eq('id', editData.id)
-      } else {
-        await supabase.from('transactions').insert([payload])
-      }
-
-      setEditData(null)
-      fetchTransactions()
-      onClose()
-    } catch (error) {
-      console.error(error)
-      alert('Error saving transaction: ' + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!isOpen && !editData) return null
+  const iconName = type === 'Income' ? 'trending_up' : 'trending_down'
+  const colorClass = type === 'Income' ? 'text-[#009668]' : 'text-error'
 
   return (
-    <div className="modal-overlay">
-      <div className="glass" style={{ width: '100%', maxWidth: '500px', padding: '2rem', background: 'rgba(20,20,20,0.95)', position: 'relative' }}>
-        <button 
-          onClick={() => { setEditData(null); onClose() }}
-          style={{ position: 'absolute', right: '1.5rem', top: '1.5rem', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
-        >
-          <X size={24} />
-        </button>
-
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2rem', marginBottom: '1.5rem', fontWeight: '600' }}>
-          {editData ? 'Edit Entry' : 'Record Entry'}
-        </h2>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Amount (₹)</label>
-              <input 
-                type="number" step="0.01" min="0" placeholder="0.00"
-                value={formData.amount} 
-                onChange={(e) => setFormData({...formData, amount: e.target.value})} 
-                required 
-                style={{ fontSize: '1.25rem', fontWeight: '500' }}
-              />
+    <div className="fixed inset-0 bg-scrim/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="card-tint-primary w-full max-w-lg max-h-[80vh] flex flex-col rounded-3xl shadow-xl overflow-hidden relative">
+        {/* Header */}
+        <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest shrink-0">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${type === 'Income' ? 'bg-[#009668]/10' : 'bg-error-container'}`}>
+              <span className={`material-symbols-outlined text-[24px] ${type === 'Income' ? 'text-[#005236]' : 'text-on-error-container'}`}>
+                {iconName}
+              </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Date</label>
-              <input 
-                type="date" 
-                value={formData.txn_date} 
-                onChange={(e) => setFormData({...formData, txn_date: e.target.value})} 
-                required 
-              />
+            <div>
+              <h3 className="text-headline-sm font-headline-sm text-primary m-0">{category}</h3>
+              <p className="text-body-sm text-on-surface-variant m-0 mt-1">History of {type}</p>
             </div>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Type</label>
-              <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
-                <option value="Income">Income</option>
-                <option value="Expense">Expense</option>
-                <option value="Money to Get">Money to Get</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Account</label>
-              <select value={formData.bank} onChange={(e) => setFormData({...formData, bank: e.target.value})}>
-                <option value="Cash">Cash</option>
-                <option value="IOB">IOB</option>
-                <option value="FED">FED</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Category</label>
-            <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} required>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Description (Optional)</label>
-            <input 
-              type="text" placeholder="e.g. Groceries"
-              value={formData.desc} 
-              onChange={(e) => setFormData({...formData, desc: e.target.value})} 
-            />
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: '1rem', padding: '1rem', fontSize: '1.125rem' }}>
-            {loading ? 'Saving...' : (editData ? 'Save Changes' : 'Record Transaction')}
+          <button 
+            onClick={onClose}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
-        </form>
+        </div>
+
+        {/* List */}
+        <div className="p-6 overflow-y-auto no-scrollbar flex flex-col gap-4">
+          {transactions.length === 0 ? (
+            <p className="text-on-surface-variant text-center py-8">No transactions found.</p>
+          ) : (
+            transactions.map(txn => (
+              <div key={txn.id} className="flex justify-between items-center p-4 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm hover:border-outline-variant/40 transition-colors">
+                <div className="flex flex-col gap-1">
+                  <span className="text-body-lg font-bold text-on-surface">{txn.desc || txn.category}</span>
+                  <span className="text-body-sm text-on-surface-variant">
+                    {new Date(txn.txn_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} • {txn.bank || 'Cash'}
+                  </span>
+                </div>
+                <span className={`text-body-lg font-bold ${colorClass}`}>
+                  ₹{Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   )

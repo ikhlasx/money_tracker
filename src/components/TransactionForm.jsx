@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { PlusCircle, XCircle } from 'lucide-react'
 
 export default function TransactionForm({ fetchTransactions, editData, setEditData }) {
   const [loading, setLoading] = useState(false)
@@ -100,37 +99,52 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
   }
 
   return (
-    <div className="glass animate-fade-in" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-      <h2 className="text-h3" style={{ marginBottom: '1.5rem', color: 'var(--accent)' }}>
-        {editData ? 'Edit Transaction' : 'Add New Transaction'}
+    <div className="card-tint-primary rounded-3xl p-6 lg:p-8 relative overflow-hidden group mb-8">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-secondary/10 transition-colors duration-500"></div>
+      
+      <h2 className="text-headline-md font-headline-md text-primary mb-6 relative z-10 flex items-center gap-2">
+        <span className="material-symbols-outlined text-secondary">
+          {editData ? 'edit' : 'add_circle'}
+        </span>
+        {editData ? 'Edit Transaction' : 'New Transaction'}
       </h2>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+      
+      <form onSubmit={handleSubmit} className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label className="text-muted" style={{ fontSize: '0.875rem' }}>Date</label>
-          <input 
-            type="date" 
-            value={formData.txn_date} 
-            onChange={(e) => setFormData({...formData, txn_date: e.target.value})} 
-            required 
-          />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label className="text-muted" style={{ fontSize: '0.875rem' }}>Type</label>
+        <div className="flex flex-col gap-2">
+          <label className="text-label-caps text-on-surface-variant ml-1">Type</label>
           <select 
+            className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
             value={formData.type} 
             onChange={(e) => setFormData({...formData, type: e.target.value})}
           >
-            <option value="Income">Income</option>
             <option value="Expense">Expense</option>
+            <option value="Income">Income</option>
             <option value="Money to Get">Money to Get</option>
           </select>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label className="text-muted" style={{ fontSize: '0.875rem' }}>Category</label>
+        <div className="flex flex-col gap-2">
+          <label className="text-label-caps text-on-surface-variant ml-1">Amount (₹)</label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline font-bold">₹</span>
+            <input 
+              type="number" 
+              step="0.01" 
+              min="0"
+              placeholder="0.00"
+              className="input-field rounded-2xl pl-10 pr-4 py-3.5 text-body-lg text-on-surface w-full"
+              value={formData.amount} 
+              onChange={(e) => setFormData({...formData, amount: e.target.value})} 
+              required 
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-label-caps text-on-surface-variant ml-1">Category</label>
           <select 
+            className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
             value={formData.category} 
             onChange={(e) => setFormData({...formData, category: e.target.value})}
             required
@@ -139,32 +153,21 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
           </select>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label className="text-muted" style={{ fontSize: '0.875rem' }}>Description</label>
+        <div className="flex flex-col gap-2">
+          <label className="text-label-caps text-on-surface-variant ml-1">Date</label>
           <input 
-            type="text" 
-            placeholder="e.g. Groceries"
-            value={formData.desc} 
-            onChange={(e) => setFormData({...formData, desc: e.target.value})} 
-          />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label className="text-muted" style={{ fontSize: '0.875rem' }}>Amount (₹)</label>
-          <input 
-            type="number" 
-            step="0.01" 
-            min="0"
-            placeholder="0.00"
-            value={formData.amount} 
-            onChange={(e) => setFormData({...formData, amount: e.target.value})} 
+            type="date" 
+            className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full"
+            value={formData.txn_date} 
+            onChange={(e) => setFormData({...formData, txn_date: e.target.value})} 
             required 
           />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label className="text-muted" style={{ fontSize: '0.875rem' }}>Bank Account</label>
+        <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-1">
+          <label className="text-label-caps text-on-surface-variant ml-1">Account</label>
           <select 
+            className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
             value={formData.bank} 
             onChange={(e) => setFormData({...formData, bank: e.target.value})}
           >
@@ -175,13 +178,39 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
           </select>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 1 }}>
-            <PlusCircle size={18} /> {editData ? 'Update' : 'Add'}
+        <div className="flex flex-col gap-2 lg:col-span-1">
+          <label className="text-label-caps text-on-surface-variant ml-1">Description (Optional)</label>
+          <input 
+            type="text" 
+            placeholder="e.g. Groceries"
+            className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full"
+            value={formData.desc} 
+            onChange={(e) => setFormData({...formData, desc: e.target.value})} 
+          />
+        </div>
+
+        <div className="col-span-full flex flex-col sm:flex-row gap-4 mt-2">
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="flex-1 bg-secondary hover:bg-secondary/90 text-on-secondary px-6 py-4 rounded-full font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-secondary/20"
+          >
+            {loading ? (
+               <span className="material-symbols-outlined animate-spin">refresh</span>
+            ) : (
+               <span className="material-symbols-outlined">{editData ? 'update' : 'send'}</span>
+            )}
+            {editData ? 'Update Transaction' : 'Save Transaction'}
           </button>
+          
           {editData && (
-            <button type="button" className="btn btn-danger" onClick={handleCancel}>
-              <XCircle size={18} /> Cancel
+            <button 
+              type="button" 
+              onClick={handleCancel}
+              className="px-6 py-4 rounded-full font-bold text-outline hover:bg-surface-container-high transition-colors flex justify-center items-center gap-2"
+            >
+              <span className="material-symbols-outlined">cancel</span>
+              Cancel
             </button>
           )}
         </div>

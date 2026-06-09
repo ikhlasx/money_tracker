@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { AlertTriangle, TrendingUp, BarChart2, Calendar, Award, PieChart, TrendingDown } from 'lucide-react'
 import TransactionModal from './TransactionModal'
 
 export default function Reports({ transactions }) {
@@ -104,44 +103,57 @@ export default function Reports({ transactions }) {
     return transactions.filter(t => t.category === modalCategory && t.type === modalType).sort((a,b) => new Date(b.txn_date) - new Date(a.txn_date))
   }, [isModalOpen, modalCategory, modalType, transactions])
 
+  const getIconForCategory = (category) => {
+    const cat = category?.toLowerCase() || ''
+    if (cat.includes('food') || cat.includes('grocery')) return 'restaurant'
+    if (cat.includes('transport') || cat.includes('fuel')) return 'local_gas_station'
+    if (cat.includes('shop')) return 'shopping_bag'
+    if (cat.includes('bill') || cat.includes('utilit')) return 'receipt_long'
+    if (cat.includes('health') || cat.includes('medic')) return 'medical_services'
+    if (cat.includes('entert')) return 'movie'
+    return 'category'
+  }
+
   return (
-    <div className="reports-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="flex flex-col gap-6 animate-fade-in">
       
       {/* Controls */}
-      <div className="glass" style={{ padding: '1rem 1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <Calendar className="text-primary" size={20} />
-        <h3 className="text-h3" style={{ margin: 0, marginRight: 'auto' }}>Reports</h3>
+      <div className="card-tint-primary rounded-[32px] p-6 flex flex-wrap gap-4 items-center">
+        <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined">calendar_month</span>
+        </div>
+        <h3 className="text-headline-md font-headline-md text-primary mr-auto">Report Filters</h3>
         
         <select 
+          className="input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
           value={selectedMonth} 
           onChange={(e) => setSelectedMonth(Number(e.target.value))}
-          style={{ width: 'auto' }}
         >
           {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
         
         <select 
+          className="input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
           value={selectedYear} 
           onChange={(e) => setSelectedYear(Number(e.target.value))}
-          style={{ width: 'auto' }}
         >
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Monthly Report & Budget Warning */}
-        <div className="glass animate-fade-in" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-            <BarChart2 className="text-accent" size={20} />
-            <h3 className="text-h3">Monthly Report ({months[selectedMonth]})</h3>
+        <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="material-symbols-outlined text-secondary">bar_chart</span>
+            <h3 className="text-headline-md font-headline-md text-primary">Monthly Report ({months[selectedMonth]})</h3>
           </div>
           
           {Object.keys(monthlyExpensesByCategory).length === 0 ? (
-            <p className="text-muted">No expenses this month.</p>
+            <p className="text-on-surface-variant py-4 text-center">No expenses this month.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="flex flex-col gap-6">
               {Object.entries(monthlyExpensesByCategory)
                 .sort((a, b) => b[1] - a[1]) // sort by amount
                 .map(([catName, amount]) => {
@@ -151,30 +163,25 @@ export default function Reports({ transactions }) {
                   const percentage = budget > 0 ? Math.min((amount / budget) * 100, 100) : 0
 
                   return (
-                    <div key={catName} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="text-body" style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div key={catName} className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-body-lg font-bold text-on-surface flex items-center gap-2">
                           {catName}
-                          {isOverBudget && <AlertTriangle size={14} className="text-danger" title="Over Budget" />}
+                          {isOverBudget && <span className="material-symbols-outlined text-error text-[16px]" title="Over Budget">warning</span>}
                         </span>
-                        <span style={{ fontWeight: '600', color: isOverBudget ? 'var(--danger)' : 'var(--text)' }}>
+                        <span className={`font-bold ${isOverBudget ? 'text-error' : 'text-primary'}`}>
                           ₹{amount.toLocaleString()}
-                          {budget > 0 && <span className="text-muted" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }}>/ ₹{budget}</span>}
+                          {budget > 0 && <span className="text-body-sm text-on-surface-variant ml-1">/ ₹{budget}</span>}
                         </span>
                       </div>
                       
                       {/* Progress Bar */}
                       {budget > 0 && (
-                        <div className="progress-bg" style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
                           <div 
-                            className="progress-fill" 
-                            style={{ 
-                              height: '100%',
-                              width: `${percentage}%`,
-                              background: isOverBudget ? 'var(--danger)' : 'var(--accent)',
-                              transition: 'width 0.5s ease-out'
-                            }} 
-                          />
+                            className={`h-full rounded-full transition-all duration-1000 ${isOverBudget ? 'bg-error shadow-error/20 progress-bar-glow' : 'bg-secondary progress-bar-glow'}`}
+                            style={{ width: `${percentage}%` }}
+                          ></div>
                         </div>
                       )}
                     </div>
@@ -185,23 +192,23 @@ export default function Reports({ transactions }) {
         </div>
 
         {/* Top Expenses List */}
-        <div className="glass animate-fade-in" style={{ padding: '1.5rem', animationDelay: '0.1s' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-            <Award className="text-warning" style={{ color: '#f59e0b' }} size={20} />
-            <h3 className="text-h3">Top Expenses ({months[selectedMonth]})</h3>
+        <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="material-symbols-outlined text-[#f59e0b]">emoji_events</span>
+            <h3 className="text-headline-md font-headline-md text-primary">Top Expenses ({months[selectedMonth]})</h3>
           </div>
 
           {topExpenses.length === 0 ? (
-             <p className="text-muted">No expenses to show.</p>
+             <p className="text-on-surface-variant py-4 text-center">No expenses to show.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="flex flex-col gap-4">
               {topExpenses.map((txn, idx) => (
-                <div key={txn.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="text-body" style={{ fontWeight: '500' }}>{txn.desc || txn.category}</span>
-                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>{txn.category} • {new Date(txn.txn_date).toLocaleDateString()}</span>
+                <div key={txn.id || idx} className="flex justify-between items-center p-4 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm">
+                  <div className="flex flex-col">
+                    <span className="text-body-lg font-bold text-on-surface">{txn.desc || txn.category}</span>
+                    <span className="text-body-sm text-on-surface-variant">{txn.category} • {new Date(txn.txn_date).toLocaleDateString()}</span>
                   </div>
-                  <span className="text-danger" style={{ fontWeight: '600' }}>
+                  <span className="text-error font-bold text-body-lg">
                     ₹{Number(txn.amount).toLocaleString()}
                   </span>
                 </div>
@@ -213,22 +220,22 @@ export default function Reports({ transactions }) {
       </div>
 
       {/* Yearly Report */}
-      <div className="glass animate-fade-in" style={{ padding: '1.5rem', animationDelay: '0.2s' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <TrendingUp className="text-success" size={20} />
-          <h3 className="text-h3">Yearly Report ({selectedYear})</h3>
+      <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="material-symbols-outlined text-[#009668]">trending_up</span>
+          <h3 className="text-headline-md font-headline-md text-primary">Yearly Report ({selectedYear})</h3>
         </div>
 
         {Object.keys(yearlyExpensesByCategory).length === 0 ? (
-          <p className="text-muted">No expenses this year.</p>
+          <p className="text-on-surface-variant py-4 text-center">No expenses this year.</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {Object.entries(yearlyExpensesByCategory)
               .sort((a, b) => b[1] - a[1])
               .map(([catName, amount]) => (
-                <div key={catName} style={{ display: 'flex', flexDirection: 'column', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: '3px solid var(--success)' }}>
-                  <span className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>{catName}</span>
-                  <span className="text-h2" style={{ fontSize: '1.25rem' }}>₹{amount.toLocaleString()}</span>
+                <div key={catName} className="flex flex-col p-6 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm border-l-4 border-l-[#009668]">
+                  <span className="text-body-sm text-on-surface-variant mb-1">{catName}</span>
+                  <span className="text-display-sm text-primary font-bold">₹{amount.toLocaleString()}</span>
                 </div>
             ))}
           </div>
@@ -236,45 +243,53 @@ export default function Reports({ transactions }) {
       </div>
 
       {/* All-Time Overview */}
-      <div className="glass animate-fade-in" style={{ padding: '1.5rem', animationDelay: '0.3s' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-          <PieChart className="text-primary" size={20} />
-          <h3 className="text-h3">All-Time Overview by Category</h3>
+      <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="material-symbols-outlined text-secondary">pie_chart</span>
+          <h3 className="text-headline-md font-headline-md text-primary">All-Time Overview by Category</h3>
         </div>
 
         {Object.keys(allTimeStatsByCategory).length === 0 ? (
-          <p className="text-muted">No transactions found.</p>
+          <p className="text-on-surface-variant py-4 text-center">No transactions found.</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(allTimeStatsByCategory)
               .sort((a, b) => (b[1].Expense + b[1].Income) - (a[1].Expense + a[1].Income))
-              .map(([catName, stats]) => (
-                <div key={catName} style={{ display: 'flex', flexDirection: 'column', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
-                  <h4 className="text-body" style={{ fontWeight: '600', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{catName}</h4>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <button 
-                      onClick={() => handleOpenModal(catName, 'Income')}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'}
-                    >
-                      <span className="text-success" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}><TrendingUp size={16}/> Income</span>
-                      <span className="text-success" style={{ fontWeight: '600' }}>₹{stats.Income.toLocaleString()}</span>
-                    </button>
+              .map(([catName, stats]) => {
+                const icon = getIconForCategory(catName)
+                return (
+                  <div key={catName} className="soft-card p-6 flex flex-col gap-4">
+                    <div className="flex items-center gap-3 pb-4 border-b border-outline-variant/30">
+                      <div className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined">{icon}</span>
+                      </div>
+                      <h4 className="text-body-lg font-bold text-on-surface">{catName}</h4>
+                    </div>
                     
-                    <button 
-                      onClick={() => handleOpenModal(catName, 'Expense')}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                    >
-                      <span className="text-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}><TrendingDown size={16}/> Spent</span>
-                      <span className="text-danger" style={{ fontWeight: '600' }}>₹{stats.Expense.toLocaleString()}</span>
-                    </button>
+                    <div className="flex flex-col gap-3">
+                      <button 
+                        onClick={() => handleOpenModal(catName, 'Income')}
+                        className="flex justify-between items-center bg-[#009668]/10 border border-[#009668]/20 p-4 rounded-xl cursor-pointer transition-colors hover:bg-[#009668]/20"
+                      >
+                        <span className="text-[#005236] flex items-center gap-2 text-body-sm font-bold">
+                          <span className="material-symbols-outlined text-[18px]">trending_up</span> Income
+                        </span>
+                        <span className="text-[#005236] font-bold">₹{stats.Income.toLocaleString()}</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleOpenModal(catName, 'Expense')}
+                        className="flex justify-between items-center bg-error-container/50 border border-error-container p-4 rounded-xl cursor-pointer transition-colors hover:bg-error-container"
+                      >
+                        <span className="text-on-error-container flex items-center gap-2 text-body-sm font-bold">
+                          <span className="material-symbols-outlined text-[18px]">trending_down</span> Spent
+                        </span>
+                        <span className="text-on-error-container font-bold">₹{stats.Expense.toLocaleString()}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-            ))}
+                )
+              })}
           </div>
         )}
       </div>
