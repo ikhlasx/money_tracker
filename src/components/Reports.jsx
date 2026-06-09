@@ -2,29 +2,35 @@ import { useState, useMemo, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import TransactionModal from './TransactionModal'
 
+/* Cycle through gradient colours for category cards */
+const CARD_COLORS = [
+  { card: 'glass-violet', icon: 'text-violet-300', label: 'text-violet-300/70', value: 'text-violet-100' },
+  { card: 'glass-cyan',   icon: 'text-cyan-300',   label: 'text-cyan-300/70',   value: 'text-cyan-100'   },
+  { card: 'glass-pink',   icon: 'text-pink-300',   label: 'text-pink-300/70',   value: 'text-pink-100'   },
+  { card: 'glass-amber',  icon: 'text-amber-300',  label: 'text-amber-300/70',  value: 'text-amber-100'  },
+  { card: 'glass-green',  icon: 'text-emerald-300',label: 'text-emerald-300/70',value: 'text-emerald-100'},
+  { card: 'glass-blue',   icon: 'text-blue-300',   label: 'text-blue-300/70',   value: 'text-blue-100'   },
+  { card: 'glass-orange', icon: 'text-orange-300', label: 'text-orange-300/70', value: 'text-orange-100' },
+  { card: 'glass-red',    icon: 'text-red-300',    label: 'text-red-300/70',    value: 'text-red-100'    },
+]
+
 export default function Reports({ transactions }) {
   const [categories, setCategories] = useState([])
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()) // 0-11
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear())
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen]   = useState(false)
   const [modalCategory, setModalCategory] = useState('')
-  const [modalType, setModalType] = useState('Income') // 'Income' or 'Expense'
+  const [modalType, setModalType]       = useState('Income')
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
+  useEffect(() => { fetchCategories() }, [])
 
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase.from('categories').select('name, monthly_budget')
       if (error) {
-        // Fallback if monthly_budget is missing
         const fallback = await supabase.from('categories').select('name')
-        if (!fallback.error) {
-          setCategories(fallback.data.map(c => ({ ...c, monthly_budget: 0 })))
-        }
+        if (!fallback.error) setCategories(fallback.data.map(c => ({ ...c, monthly_budget: 0 })))
       } else {
         setCategories(data)
       }
@@ -33,55 +39,31 @@ export default function Reports({ transactions }) {
     }
   }
 
-  // --- Calculations ---
-  
-  // Filter for Expenses only
   const expenses = useMemo(() => transactions.filter(t => t.type === 'Expense'), [transactions])
 
-  // 1. Monthly Category Report
   const monthlyExpensesByCategory = useMemo(() => {
-    const monthlyFiltered = expenses.filter(t => {
-      const d = new Date(t.txn_date)
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear
-    })
-
     const totals = {}
-    monthlyFiltered.forEach(t => {
-      totals[t.category] = (totals[t.category] || 0) + Number(t.amount)
-    })
+    expenses
+      .filter(t => { const d = new Date(t.txn_date); return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear })
+      .forEach(t => { totals[t.category] = (totals[t.category] || 0) + Number(t.amount) })
     return totals
   }, [expenses, selectedMonth, selectedYear])
 
-  // 2. Yearly Category Report
   const yearlyExpensesByCategory = useMemo(() => {
-    const yearlyFiltered = expenses.filter(t => {
-      const d = new Date(t.txn_date)
-      return d.getFullYear() === selectedYear
-    })
-
     const totals = {}
-    yearlyFiltered.forEach(t => {
-      totals[t.category] = (totals[t.category] || 0) + Number(t.amount)
-    })
+    expenses
+      .filter(t => new Date(t.txn_date).getFullYear() === selectedYear)
+      .forEach(t => { totals[t.category] = (totals[t.category] || 0) + Number(t.amount) })
     return totals
   }, [expenses, selectedYear])
 
-  // 3. Top Expenses (Overall for the selected month)
   const topExpenses = useMemo(() => {
-    const monthlyFiltered = expenses.filter(t => {
-      const d = new Date(t.txn_date)
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear
-    })
-    // Sort descending by amount
-    return [...monthlyFiltered].sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 5)
+    return [...expenses]
+      .filter(t => { const d = new Date(t.txn_date); return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear })
+      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      .slice(0, 5)
   }, [expenses, selectedMonth, selectedYear])
 
-  // Helpers for Month/Year selection
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-  const years = Array.from(new Set(transactions.map(t => new Date(t.txn_date).getFullYear()))).sort((a, b) => b - a)
-  if (years.length === 0) years.push(new Date().getFullYear())
-
-  // 4. All-Time Category Stats
   const allTimeStatsByCategory = useMemo(() => {
     const stats = {}
     transactions.forEach(t => {
@@ -92,15 +74,19 @@ export default function Reports({ transactions }) {
     return stats
   }, [transactions])
 
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const years  = Array.from(new Set(transactions.map(t => new Date(t.txn_date).getFullYear()))).sort((a, b) => b - a)
+  if (years.length === 0) years.push(new Date().getFullYear())
+
   const handleOpenModal = (category, type) => {
-    setModalCategory(category)
-    setModalType(type)
-    setIsModalOpen(true)
+    setModalCategory(category); setModalType(type); setIsModalOpen(true)
   }
 
   const modalTransactions = useMemo(() => {
     if (!isModalOpen) return []
-    return transactions.filter(t => t.category === modalCategory && t.type === modalType).sort((a,b) => new Date(b.txn_date) - new Date(a.txn_date))
+    return transactions
+      .filter(t => t.category === modalCategory && t.type === modalType)
+      .sort((a, b) => new Date(b.txn_date) - new Date(a.txn_date))
   }, [isModalOpen, modalCategory, modalType, transactions])
 
   const getIconForCategory = (category) => {
@@ -114,27 +100,29 @@ export default function Reports({ transactions }) {
     return 'category'
   }
 
+  const dropdownArrow = "bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjYzRjN2M4IiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
+
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
-      
-      {/* Controls */}
-      <div className="card-tint-primary rounded-[32px] p-6 flex flex-wrap gap-4 items-center">
-        <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+
+      {/* Filter controls — violet glass */}
+      <div className="glass-violet rounded-[32px] p-6 flex flex-wrap gap-4 items-center">
+        <div className="w-11 h-11 rounded-full bg-violet-500/20 text-violet-300 flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined">calendar_month</span>
         </div>
-        <h3 className="text-headline-md font-headline-md text-primary mr-auto">Report Filters</h3>
-        
-        <select 
-          className="input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
-          value={selectedMonth} 
+        <h3 className="text-headline-md font-headline-md text-on-surface mr-auto">Report Filters</h3>
+
+        <select
+          className={`input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface appearance-none ${dropdownArrow}`}
+          value={selectedMonth}
           onChange={(e) => setSelectedMonth(Number(e.target.value))}
         >
           {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
-        
-        <select 
-          className="input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjNzY3NzdkIiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
-          value={selectedYear} 
+
+        <select
+          className={`input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface appearance-none ${dropdownArrow}`}
+          value={selectedYear}
           onChange={(e) => setSelectedYear(Number(e.target.value))}
         >
           {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -142,73 +130,74 @@ export default function Reports({ transactions }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Monthly Report & Budget Warning */}
-        <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+
+        {/* Monthly Report — amber glass */}
+        <div className="glass-amber rounded-[32px] p-6 lg:p-8">
           <div className="flex items-center gap-3 mb-6">
-            <span className="material-symbols-outlined text-secondary">bar_chart</span>
-            <h3 className="text-headline-md font-headline-md text-primary">Monthly Report ({months[selectedMonth]})</h3>
+            <span className="material-symbols-outlined text-amber-300">bar_chart</span>
+            <h3 className="text-headline-md font-headline-md text-on-surface">Monthly Report ({months[selectedMonth]})</h3>
           </div>
-          
+
           {Object.keys(monthlyExpensesByCategory).length === 0 ? (
             <p className="text-on-surface-variant py-4 text-center">No expenses this month.</p>
           ) : (
             <div className="flex flex-col gap-6">
               {Object.entries(monthlyExpensesByCategory)
-                .sort((a, b) => b[1] - a[1]) // sort by amount
+                .sort((a, b) => b[1] - a[1])
                 .map(([catName, amount]) => {
                   const catData = categories.find(c => c.name === catName)
-                  const budget = catData?.monthly_budget || 0
-                  const isOverBudget = budget > 0 && amount > budget
-                  const percentage = budget > 0 ? Math.min((amount / budget) * 100, 100) : 0
+                  const budget  = catData?.monthly_budget || 0
+                  const isOver  = budget > 0 && amount > budget
+                  const pct     = budget > 0 ? Math.min((amount / budget) * 100, 100) : 0
 
                   return (
                     <div key={catName} className="flex flex-col gap-2">
                       <div className="flex justify-between items-center">
                         <span className="text-body-lg font-bold text-on-surface flex items-center gap-2">
                           {catName}
-                          {isOverBudget && <span className="material-symbols-outlined text-error text-[16px]" title="Over Budget">warning</span>}
+                          {isOver && <span className="material-symbols-outlined text-red-400 text-[16px]" title="Over Budget">warning</span>}
                         </span>
-                        <span className={`font-bold ${isOverBudget ? 'text-error' : 'text-primary'}`}>
+                        <span className={`font-bold ${isOver ? 'text-red-400' : 'text-amber-200'}`}>
                           ₹{amount.toLocaleString()}
                           {budget > 0 && <span className="text-body-sm text-on-surface-variant ml-1">/ ₹{budget}</span>}
                         </span>
                       </div>
-                      
-                      {/* Progress Bar */}
                       {budget > 0 && (
-                        <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-1000 ${isOverBudget ? 'bg-error shadow-error/20 progress-bar-glow' : 'bg-secondary progress-bar-glow'}`}
-                            style={{ width: `${percentage}%` }}
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-1000 progress-bar-glow ${isOver ? 'bg-red-400' : 'bg-amber-400'}`}
+                            style={{ width: `${pct}%` }}
                           ></div>
                         </div>
                       )}
                     </div>
                   )
-              })}
+                })}
             </div>
           )}
         </div>
 
-        {/* Top Expenses List */}
-        <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+        {/* Top Expenses — red glass */}
+        <div className="glass-red rounded-[32px] p-6 lg:p-8">
           <div className="flex items-center gap-3 mb-6">
-            <span className="material-symbols-outlined text-[#f59e0b]">emoji_events</span>
-            <h3 className="text-headline-md font-headline-md text-primary">Top Expenses ({months[selectedMonth]})</h3>
+            <span className="material-symbols-outlined text-red-300">emoji_events</span>
+            <h3 className="text-headline-md font-headline-md text-on-surface">Top Expenses ({months[selectedMonth]})</h3>
           </div>
 
           {topExpenses.length === 0 ? (
-             <p className="text-on-surface-variant py-4 text-center">No expenses to show.</p>
+            <p className="text-on-surface-variant py-4 text-center">No expenses to show.</p>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {topExpenses.map((txn, idx) => (
-                <div key={txn.id || idx} className="flex justify-between items-center p-4 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm">
-                  <div className="flex flex-col">
-                    <span className="text-body-lg font-bold text-on-surface">{txn.desc || txn.category}</span>
-                    <span className="text-body-sm text-on-surface-variant">{txn.category} • {new Date(txn.txn_date).toLocaleDateString()}</span>
+                <div key={txn.id || idx} className="flex justify-between items-center p-4 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-3">
+                    <span className="text-body-sm font-bold text-red-300/60 w-5">#{idx + 1}</span>
+                    <div className="flex flex-col">
+                      <span className="text-body-lg font-bold text-on-surface">{txn.desc || txn.category}</span>
+                      <span className="text-body-sm text-on-surface-variant">{txn.category} • {new Date(txn.txn_date).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                  <span className="text-error font-bold text-body-lg">
+                  <span className="text-red-300 font-bold text-body-lg">
                     ₹{Number(txn.amount).toLocaleString()}
                   </span>
                 </div>
@@ -219,11 +208,11 @@ export default function Reports({ transactions }) {
 
       </div>
 
-      {/* Yearly Report */}
-      <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+      {/* Yearly Report — green glass */}
+      <div className="glass-green rounded-[32px] p-6 lg:p-8">
         <div className="flex items-center gap-3 mb-6">
-          <span className="material-symbols-outlined text-[#009668]">trending_up</span>
-          <h3 className="text-headline-md font-headline-md text-primary">Yearly Report ({selectedYear})</h3>
+          <span className="material-symbols-outlined text-emerald-300">trending_up</span>
+          <h3 className="text-headline-md font-headline-md text-on-surface">Yearly Report ({selectedYear})</h3>
         </div>
 
         {Object.keys(yearlyExpensesByCategory).length === 0 ? (
@@ -232,21 +221,24 @@ export default function Reports({ transactions }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {Object.entries(yearlyExpensesByCategory)
               .sort((a, b) => b[1] - a[1])
-              .map(([catName, amount]) => (
-                <div key={catName} className="flex flex-col p-6 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm border-l-4 border-l-[#009668]">
-                  <span className="text-body-sm text-on-surface-variant mb-1">{catName}</span>
-                  <span className="text-display-sm text-primary font-bold">₹{amount.toLocaleString()}</span>
-                </div>
-            ))}
+              .map(([catName, amount], idx) => {
+                const c = CARD_COLORS[idx % CARD_COLORS.length]
+                return (
+                  <div key={catName} className={`${c.card} flex flex-col p-5 rounded-2xl`}>
+                    <span className={`text-body-sm mb-1 ${c.label}`}>{catName}</span>
+                    <span className={`text-2xl font-bold ${c.value}`}>₹{amount.toLocaleString()}</span>
+                  </div>
+                )
+              })}
           </div>
         )}
       </div>
 
-      {/* All-Time Overview */}
-      <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+      {/* All-Time Overview — cyan glass */}
+      <div className="glass-cyan rounded-[32px] p-6 lg:p-8">
         <div className="flex items-center gap-3 mb-6">
-          <span className="material-symbols-outlined text-secondary">pie_chart</span>
-          <h3 className="text-headline-md font-headline-md text-primary">All-Time Overview by Category</h3>
+          <span className="material-symbols-outlined text-cyan-300">pie_chart</span>
+          <h3 className="text-headline-md font-headline-md text-on-surface">All-Time Overview by Category</h3>
         </div>
 
         {Object.keys(allTimeStatsByCategory).length === 0 ? (
@@ -255,36 +247,37 @@ export default function Reports({ transactions }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(allTimeStatsByCategory)
               .sort((a, b) => (b[1].Expense + b[1].Income) - (a[1].Expense + a[1].Income))
-              .map(([catName, stats]) => {
+              .map(([catName, stats], idx) => {
                 const icon = getIconForCategory(catName)
+                const c    = CARD_COLORS[idx % CARD_COLORS.length]
                 return (
-                  <div key={catName} className="soft-card p-6 flex flex-col gap-4">
-                    <div className="flex items-center gap-3 pb-4 border-b border-outline-variant/30">
-                      <div className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center shrink-0">
+                  <div key={catName} className={`${c.card} p-6 rounded-2xl flex flex-col gap-4`}>
+                    <div className="flex items-center gap-3 pb-4 border-b border-white/10">
+                      <div className={`w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 ${c.icon}`}>
                         <span className="material-symbols-outlined">{icon}</span>
                       </div>
                       <h4 className="text-body-lg font-bold text-on-surface">{catName}</h4>
                     </div>
-                    
+
                     <div className="flex flex-col gap-3">
-                      <button 
+                      <button
                         onClick={() => handleOpenModal(catName, 'Income')}
-                        className="flex justify-between items-center bg-[#009668]/10 border border-[#009668]/20 p-4 rounded-xl cursor-pointer transition-colors hover:bg-[#009668]/20"
+                        className="flex justify-between items-center bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl cursor-pointer transition-colors hover:bg-emerald-500/20"
                       >
-                        <span className="text-[#005236] flex items-center gap-2 text-body-sm font-bold">
+                        <span className="text-emerald-300 flex items-center gap-2 text-body-sm font-bold">
                           <span className="material-symbols-outlined text-[18px]">trending_up</span> Income
                         </span>
-                        <span className="text-[#005236] font-bold">₹{stats.Income.toLocaleString()}</span>
+                        <span className="text-emerald-300 font-bold">₹{stats.Income.toLocaleString()}</span>
                       </button>
-                      
-                      <button 
+
+                      <button
                         onClick={() => handleOpenModal(catName, 'Expense')}
-                        className="flex justify-between items-center bg-error-container/50 border border-error-container p-4 rounded-xl cursor-pointer transition-colors hover:bg-error-container"
+                        className="flex justify-between items-center bg-red-500/10 border border-red-500/20 p-4 rounded-xl cursor-pointer transition-colors hover:bg-red-500/20"
                       >
-                        <span className="text-on-error-container flex items-center gap-2 text-body-sm font-bold">
+                        <span className="text-red-300 flex items-center gap-2 text-body-sm font-bold">
                           <span className="material-symbols-outlined text-[18px]">trending_down</span> Spent
                         </span>
-                        <span className="text-on-error-container font-bold">₹{stats.Expense.toLocaleString()}</span>
+                        <span className="text-red-300 font-bold">₹{stats.Expense.toLocaleString()}</span>
                       </button>
                     </div>
                   </div>
@@ -294,7 +287,7 @@ export default function Reports({ transactions }) {
         )}
       </div>
 
-      <TransactionModal 
+      <TransactionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         category={modalCategory}

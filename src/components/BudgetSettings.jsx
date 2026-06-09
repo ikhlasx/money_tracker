@@ -2,42 +2,31 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 
 export default function BudgetSettings() {
-  const [categories, setCategories] = useState([])
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [newCategory, setNewCategory] = useState('')
-  const [addingCategory, setAddingCategory] = useState(false)
-  const [editingCat, setEditingCat] = useState(null)
-  const [editBudget, setEditBudget] = useState('')
+  const [categories,    setCategories]    = useState([])
+  const [transactions,  setTransactions]  = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [saving,        setSaving]        = useState(false)
+  const [newCategory,   setNewCategory]   = useState('')
+  const [addingCategory,setAddingCategory]= useState(false)
+  const [editingCat,    setEditingCat]    = useState(null)
+  const [editBudget,    setEditBudget]    = useState('')
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      // Fetch categories
       let { data: catData, error: catError } = await supabase.from('categories').select('name, monthly_budget')
       if (catError) {
-        console.warn("Could not fetch monthly_budget. Have you added the column?", catError)
         const fallback = await supabase.from('categories').select('name')
         if (fallback.error) throw fallback.error
         catData = fallback.data.map(c => ({ ...c, monthly_budget: 0 }))
       }
-
-      // Fetch this month's expenses
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
+      const startOfMonth = new Date(); startOfMonth.setDate(1)
       const { data: txnData, error: txnError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('type', 'Expense')
+        .from('transactions').select('*').eq('type', 'Expense')
         .gte('txn_date', startOfMonth.toISOString().split('T')[0])
-      
       if (txnError) throw txnError
-
       setCategories(catData || [])
       setTransactions(txnData || [])
     } catch (err) {
@@ -47,24 +36,18 @@ export default function BudgetSettings() {
     }
   }
 
-  const getSpent = (catName) => {
-    return transactions
-      .filter(t => t.category === catName)
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  }
+  const getSpent = (catName) =>
+    transactions.filter(t => t.category === catName).reduce((s, t) => s + parseFloat(t.amount), 0)
 
-  const totalBudget = categories.reduce((sum, c) => sum + (c.monthly_budget || 0), 0)
-  const totalSpent = categories.reduce((sum, c) => sum + getSpent(c.name), 0)
+  const totalBudget   = categories.reduce((s, c) => s + (c.monthly_budget || 0), 0)
+  const totalSpent    = categories.reduce((s, c) => s + getSpent(c.name), 0)
   const overallProgress = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0
 
   const handleSaveBudget = async (name) => {
     if (!editBudget) return setEditingCat(null)
     setSaving(true)
     try {
-      await supabase
-        .from('categories')
-        .update({ monthly_budget: parseFloat(editBudget) || 0 })
-        .eq('name', name)
+      await supabase.from('categories').update({ monthly_budget: parseFloat(editBudget) || 0 }).eq('name', name)
       setCategories(prev => prev.map(c => c.name === name ? { ...c, monthly_budget: parseFloat(editBudget) || 0 } : c))
       setEditingCat(null)
     } catch (err) {
@@ -105,58 +88,57 @@ export default function BudgetSettings() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero Header */}
       <div className="mb-8 lg:mb-12">
         <h1 className="text-display-lg-mobile lg:text-display-lg text-primary mb-2">Budget Settings</h1>
         <p className="text-body-lg text-on-surface-variant max-w-2xl">
-          Take control of your finances by setting smart limits. We'll notify you when you're getting close to your targets.
+          Take control of your finances by setting smart limits.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-        
-        {/* Left Column: Summary & Insights */}
+
+        {/* Left column — summary */}
         <div className="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-24">
-          <div className="card-tint-primary rounded-[32px] p-6 lg:p-8 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-secondary/10 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-secondary/20 transition-colors duration-500"></div>
-            
+
+          {/* Overall budget — amber glass */}
+          <div className="glass-amber rounded-[32px] p-6 lg:p-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
             <div className="relative z-10">
-              <div className="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-2xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center mb-6">
                 <span className="material-symbols-outlined text-[24px]">account_balance</span>
               </div>
-              
               <h2 className="text-body-lg font-bold text-on-surface mb-1">Overall Budget</h2>
               <div className="flex items-end gap-2 mb-6">
-                <span className="text-display-lg font-bold text-primary">₹{totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
-                <span className="text-body-lg text-on-surface-variant mb-2">/ ₹{totalBudget.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
+                <span className="text-display-lg font-bold text-amber-100">₹{totalSpent.toLocaleString()}</span>
+                <span className="text-body-lg text-amber-300/60 mb-2">/ ₹{totalBudget.toLocaleString()}</span>
               </div>
-
-              <div className="h-3 bg-surface-container-highest rounded-full overflow-hidden mb-3">
-                <div 
-                  className={`h-full rounded-full transition-all duration-1000 ${overallProgress > 90 ? 'bg-error' : 'bg-secondary'}`}
+              <div className="h-3 bg-white/10 rounded-full overflow-hidden mb-3">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 progress-bar-glow ${overallProgress > 90 ? 'bg-red-400' : 'bg-amber-400'}`}
                   style={{ width: `${overallProgress}%` }}
                 ></div>
               </div>
               <p className="text-body-sm text-on-surface-variant flex items-center gap-1">
                 {overallProgress > 90 ? (
-                  <><span className="material-symbols-outlined text-[16px] text-error">warning</span> Approaching limit</>
+                  <><span className="material-symbols-outlined text-[16px] text-red-400">warning</span> Approaching limit</>
                 ) : (
-                  <><span className="material-symbols-outlined text-[16px] text-secondary">check_circle</span> On track this month</>
+                  <><span className="material-symbols-outlined text-[16px] text-emerald-400">check_circle</span> On track this month</>
                 )}
               </p>
             </div>
           </div>
 
-          <div className="soft-card bg-tertiary-fixed/30 p-6 rounded-[24px]">
+          {/* Smart insight — green glass */}
+          <div className="glass-green p-6 rounded-[24px]">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[20px]">lightbulb</span>
               </div>
               <div>
                 <h3 className="text-body-lg font-bold text-on-surface mb-1">Smart Insight</h3>
                 <p className="text-body-sm text-on-surface-variant">
-                  {overallProgress > 90 
-                    ? "You've spent a large portion of your overall budget. Consider reducing non-essential expenses." 
+                  {overallProgress > 90
+                    ? "You've spent a large portion of your budget. Consider reducing non-essential expenses."
                     : "You're managing your budget well. Keep up the good habits!"}
                 </p>
               </div>
@@ -164,26 +146,27 @@ export default function BudgetSettings() {
           </div>
         </div>
 
-        {/* Right Column: Category Settings */}
+        {/* Right column — category settings */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          
-          <div className="card-tint-primary rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0 hidden sm:flex">
+
+          {/* Add category — violet glass */}
+          <div className="glass-violet rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-violet-500/20 text-violet-300 flex items-center justify-center shrink-0 hidden sm:flex">
               <span className="material-symbols-outlined">add_task</span>
             </div>
             <form onSubmit={handleAddCategory} className="flex-1 flex w-full flex-col sm:flex-row gap-3">
-              <input 
-                type="text" 
-                placeholder="New category name..." 
+              <input
+                type="text"
+                placeholder="New category name..."
                 className="input-field rounded-2xl px-4 py-3 flex-1 text-body-lg text-on-surface"
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
                 required
               />
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={addingCategory}
-                className="bg-secondary text-on-secondary px-6 py-3 rounded-2xl font-bold hover:bg-secondary/90 active:scale-[0.98] transition-all whitespace-nowrap flex items-center justify-center gap-2"
+                className="bg-violet-500/80 hover:bg-violet-500 text-white px-6 py-3 rounded-2xl font-bold active:scale-[0.98] transition-all whitespace-nowrap flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">add</span>
                 {addingCategory ? 'Adding...' : 'Add'}
@@ -191,9 +174,10 @@ export default function BudgetSettings() {
             </form>
           </div>
 
+          {/* Category limits — base glass */}
           <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
-            <h2 className="text-headline-md font-headline-md text-primary mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary">tune</span>
+            <h2 className="text-headline-md font-headline-md text-on-surface mb-6 flex items-center gap-2">
+              <span className="material-symbols-outlined text-on-surface-variant">tune</span>
               Category Limits
             </h2>
 
@@ -202,23 +186,24 @@ export default function BudgetSettings() {
             ) : (
               <div className="flex flex-col gap-6">
                 {categories.map((cat) => {
-                  const spent = getSpent(cat.name)
-                  const budget = cat.monthly_budget || 0
+                  const spent    = getSpent(cat.name)
+                  const budget   = cat.monthly_budget || 0
                   const progress = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
-                  const icon = getIconForCategory(cat.name)
+                  const icon     = getIconForCategory(cat.name)
                   const isEditing = editingCat === cat.name
+                  const isOver   = budget > 0 && spent > budget
 
                   return (
-                    <div key={cat.name} className="group p-4 -mx-4 rounded-2xl hover:bg-surface-container-lowest transition-colors">
+                    <div key={cat.name} className="group p-4 -mx-4 rounded-2xl hover:bg-white/5 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center shrink-0">
+                          <div className="w-12 h-12 rounded-full bg-white/8 text-on-surface-variant flex items-center justify-center shrink-0 border border-white/10">
                             <span className="material-symbols-outlined">{icon}</span>
                           </div>
                           <div>
                             <h3 className="text-body-lg font-bold text-on-surface">{cat.name}</h3>
                             <p className="text-body-sm text-on-surface-variant">
-                              Spent ₹{spent.toLocaleString(undefined, { minimumFractionDigits: 0 })} {budget > 0 && `of ₹${budget.toLocaleString(undefined, { minimumFractionDigits: 0 })}`}
+                              Spent ₹{spent.toLocaleString()} {budget > 0 && `of ₹${budget.toLocaleString()}`}
                             </p>
                           </div>
                         </div>
@@ -226,9 +211,9 @@ export default function BudgetSettings() {
                         {isEditing ? (
                           <div className="flex items-center gap-2">
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-outline">₹</span>
-                              <input 
-                                type="number" 
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">₹</span>
+                              <input
+                                type="number"
                                 className="input-field rounded-xl pl-8 pr-3 py-2 w-32 text-body-lg text-on-surface"
                                 value={editBudget}
                                 onChange={(e) => setEditBudget(e.target.value)}
@@ -236,16 +221,16 @@ export default function BudgetSettings() {
                                 autoFocus
                               />
                             </div>
-                            <button 
+                            <button
                               onClick={() => handleSaveBudget(cat.name)}
                               disabled={saving}
-                              className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center hover:bg-secondary/90 transition-colors"
+                              className="w-10 h-10 rounded-full bg-emerald-500/80 text-white flex items-center justify-center hover:bg-emerald-500 transition-colors"
                             >
                               <span className="material-symbols-outlined text-[20px]">check</span>
                             </button>
-                            <button 
+                            <button
                               onClick={() => setEditingCat(null)}
-                              className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+                              className="w-10 h-10 rounded-full bg-white/10 text-on-surface-variant flex items-center justify-center hover:bg-white/15 transition-colors"
                             >
                               <span className="material-symbols-outlined text-[20px]">close</span>
                             </button>
@@ -253,12 +238,12 @@ export default function BudgetSettings() {
                         ) : (
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="text-body-lg font-bold text-primary">₹{budget.toLocaleString()}</p>
+                              <p className={`text-body-lg font-bold ${isOver ? 'text-red-400' : 'text-primary'}`}>₹{budget.toLocaleString()}</p>
                               <p className="text-label-caps text-on-surface-variant">Limit</p>
                             </div>
-                            <button 
-                              onClick={() => { setEditingCat(cat.name); setEditBudget(cat.monthly_budget || ''); }}
-                              className="w-10 h-10 rounded-full text-outline hover:bg-surface-container-high hover:text-secondary flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            <button
+                              onClick={() => { setEditingCat(cat.name); setEditBudget(cat.monthly_budget || '') }}
+                              className="w-10 h-10 rounded-full text-on-surface-variant hover:bg-white/10 hover:text-amber-300 flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                             >
                               <span className="material-symbols-outlined text-[20px]">edit</span>
                             </button>
@@ -267,9 +252,9 @@ export default function BudgetSettings() {
                       </div>
 
                       {budget > 0 && (
-                        <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-1000 ${progress > 90 ? 'bg-error progress-bar-glow shadow-error/20' : 'bg-secondary progress-bar-glow'}`}
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-1000 progress-bar-glow ${progress > 90 ? 'bg-red-400' : 'bg-emerald-400'}`}
                             style={{ width: `${progress}%` }}
                           ></div>
                         </div>
