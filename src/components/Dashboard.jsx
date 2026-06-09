@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { Wallet, LogOut, ArrowUpCircle, ArrowDownCircle, Banknote, RefreshCcw, Building } from 'lucide-react'
+import { Wallet, LogOut, ArrowUpCircle, ArrowDownCircle, Banknote, RefreshCcw, Building, LayoutDashboard, PieChart, Settings } from 'lucide-react'
 import TransactionForm from './TransactionForm'
 import TransactionLog from './TransactionLog'
+import Reports from './Reports'
+import BudgetSettings from './BudgetSettings'
 
 export default function Dashboard({ session }) {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [editData, setEditData] = useState(null)
+  const [activeTab, setActiveTab] = useState('transactions') // 'transactions', 'reports', 'settings'
 
   // Stats
   const [income, setIncome] = useState(0)
@@ -75,6 +78,19 @@ export default function Dashboard({ session }) {
         </div>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <button className={`nav-link ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
+              <LayoutDashboard size={18} /> Transactions
+            </button>
+            <button className={`nav-link ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>
+              <PieChart size={18} /> Reports
+            </button>
+            <button className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+              <Settings size={18} /> Budget Settings
+            </button>
+          </nav>
+
           <div>
             <h3 className="text-muted" style={{ marginBottom: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Overview</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -138,32 +154,74 @@ export default function Dashboard({ session }) {
 
       {/* Main Content */}
       <main className="main-content">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
-            <h1 className="text-h1">Dashboard</h1>
-            <p className="text-muted">Manage your transactions and finances</p>
+            <h1 className="text-h1">
+              {activeTab === 'transactions' && 'Transactions'}
+              {activeTab === 'reports' && 'Reports Overview'}
+              {activeTab === 'settings' && 'Budget Settings'}
+            </h1>
+            <p className="text-muted">Manage your finances efficiently</p>
           </div>
           <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }} onClick={fetchTransactions}>
             <RefreshCcw size={16} className={loading ? 'spin' : ''} /> Refresh
           </button>
         </header>
 
-        <TransactionForm 
-          fetchTransactions={fetchTransactions}
-          editData={editData}
-          setEditData={setEditData}
-        />
+        {activeTab === 'transactions' && (
+          <div className="animate-fade-in">
+            <TransactionForm 
+              fetchTransactions={fetchTransactions}
+              editData={editData}
+              setEditData={setEditData}
+            />
+            <TransactionLog 
+              transactions={transactions}
+              fetchTransactions={fetchTransactions}
+              setEditData={setEditData}
+            />
+          </div>
+        )}
 
-        <TransactionLog 
-          transactions={transactions}
-          fetchTransactions={fetchTransactions}
-          setEditData={setEditData}
-        />
+        {activeTab === 'reports' && (
+          <Reports transactions={transactions} />
+        )}
+
+        {activeTab === 'settings' && (
+          <BudgetSettings />
+        )}
+
       </main>
 
       <style>{`
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        .nav-link {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          text-align: left;
+        }
+        
+        .nav-link:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--text);
+        }
+        
+        .nav-link.active {
+          background: rgba(59, 130, 246, 0.15);
+          color: var(--accent);
+        }
       `}</style>
     </div>
   )
