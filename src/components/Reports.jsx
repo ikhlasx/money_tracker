@@ -86,7 +86,7 @@ export default function Reports({ transactions }) {
     if (!isModalOpen) return []
     if (modalType === 'Debt History') {
       return transactions
-        .filter(t => (t.type === 'Money to Get' || t.type === 'Debt Cleared') && t.desc?.trim() === modalCategory)
+        .filter(t => (t.type === 'Money to Get' || t.type === 'Debt Cleared') && t.category === modalCategory)
         .sort((a, b) => new Date(b.txn_date) - new Date(a.txn_date))
     }
     return transactions
@@ -303,7 +303,7 @@ export default function Reports({ transactions }) {
           const debts = {}
           transactions.forEach(t => {
             if (t.type === 'Money to Get' || t.type === 'Debt Cleared') {
-              const person = t.desc?.trim() || 'Unknown'
+              const person = t.category || 'Unknown'
               if (!debts[person]) debts[person] = { lent: 0, repaid: 0 }
               if (t.type === 'Money to Get') {
                 debts[person].lent += Number(t.amount)

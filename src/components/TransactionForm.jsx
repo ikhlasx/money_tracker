@@ -156,7 +156,9 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-label-caps text-on-surface-variant ml-1">Category</label>
+          <label className="text-label-caps text-on-surface-variant ml-1">
+            {['Money to Get', 'Debt Cleared'].includes(formData.type) ? 'Category / Person Name' : 'Category'}
+          </label>
           <select
             className={`input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full appearance-none ${dropdownArrow}`}
             value={formData.category}
@@ -193,16 +195,13 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
         </div>
 
         <div className="flex flex-col gap-2 lg:col-span-1">
-          <label className="text-label-caps text-on-surface-variant ml-1">
-            {['Money to Get', 'Debt Cleared'].includes(formData.type) ? 'Person Name / Description' : 'Description (Optional)'}
-          </label>
+          <label className="text-label-caps text-on-surface-variant ml-1">Description (Optional)</label>
           <input
             type="text"
-            placeholder={['Money to Get', 'Debt Cleared'].includes(formData.type) ? "e.g. John Doe" : "e.g. Groceries"}
+            placeholder="e.g. Groceries"
             className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full"
             value={formData.desc}
             onChange={(e) => setFormData({ ...formData, desc: e.target.value })}
-            required={['Money to Get', 'Debt Cleared'].includes(formData.type)}
           />
         </div>
 
