@@ -84,6 +84,11 @@ export default function Reports({ transactions }) {
 
   const modalTransactions = useMemo(() => {
     if (!isModalOpen) return []
+    if (modalType === 'Debt History') {
+      return transactions
+        .filter(t => (t.type === 'Money to Get' || t.type === 'Debt Cleared') && t.desc?.trim() === modalCategory)
+        .sort((a, b) => new Date(b.txn_date) - new Date(a.txn_date))
+    }
     return transactions
       .filter(t => t.category === modalCategory && t.type === modalType)
       .sort((a, b) => new Date(b.txn_date) - new Date(a.txn_date))
@@ -297,36 +302,61 @@ export default function Reports({ transactions }) {
         {(() => {
           const debts = {}
           transactions.forEach(t => {
-            if (t.type === 'Money to Get') {
+            if (t.type === 'Money to Get' || t.type === 'Debt Cleared') {
               const person = t.desc?.trim() || 'Unknown'
-              debts[person] = (debts[person] || 0) + Number(t.amount)
-            } else if (t.type === 'Debt Cleared') {
-              const person = t.desc?.trim() || 'Unknown'
-              debts[person] = (debts[person] || 0) - Number(t.amount)
+              if (!debts[person]) debts[person] = { lent: 0, repaid: 0 }
+              if (t.type === 'Money to Get') {
+                debts[person].lent += Number(t.amount)
+              } else if (t.type === 'Debt Cleared') {
+                debts[person].repaid += Number(t.amount)
+              }
             }
           })
           
-          const activeDebts = Object.entries(debts).filter(([_, amt]) => amt > 0).sort((a, b) => b[1] - a[1])
+          // Show all persons who have any history, sorted by remaining balance
+          const allDebts = Object.entries(debts)
+            .map(([person, data]) => ({ person, lent: data.lent, repaid: data.repaid, balance: data.lent - data.repaid }))
+            .sort((a, b) => b.balance - a.balance)
 
-          if (activeDebts.length === 0) {
-            return <p className="text-on-surface-variant py-4 text-center">No active debts to collect.</p>
+          if (allDebts.length === 0) {
+            return <p className="text-on-surface-variant py-4 text-center">No debts or history found.</p>
           }
 
           return (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeDebts.map(([person, amount]) => (
-                <div key={person} className="bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col justify-between hover:bg-white/10 transition-colors">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-blue-300">person</span>
+              {allDebts.map(({ person, lent, repaid, balance }) => (
+                <button 
+                  key={person} 
+                  onClick={() => handleOpenModal(person, 'Debt History')}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col justify-between hover:bg-white/10 transition-colors text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-blue-300">person</span>
+                      </div>
+                      <span className="text-body-lg font-bold text-on-surface truncate max-w-[120px]">{person}</span>
                     </div>
-                    <span className="text-body-lg font-bold text-on-surface truncate">{person}</span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-[20px] opacity-50">open_in_new</span>
                   </div>
-                  <div className="mt-2 text-right">
-                    <span className="text-label-caps text-on-surface-variant block mb-1">STILL OWES</span>
-                    <span className="text-2xl font-bold text-blue-300">₹{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+
+                  <div className="flex justify-between items-end mt-2 pt-3 border-t border-white/10">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-label-caps text-on-surface-variant flex gap-1">
+                        <span className="text-red-300">Lent: ₹{lent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                      </span>
+                      <span className="text-label-caps text-on-surface-variant flex gap-1">
+                        <span className="text-emerald-300">Repaid: ₹{repaid.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-label-caps text-on-surface-variant block mb-0.5">{balance === 0 ? 'SETTLED' : 'STILL OWES'}</span>
+                      <span className={`text-xl font-bold ${balance === 0 ? 'text-emerald-300' : 'text-blue-300'}`}>
+                        ₹{balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )
