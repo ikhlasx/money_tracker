@@ -89,7 +89,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
     ? 'glass-amber'
     : formData.type === 'Income'
     ? 'glass-green'
-    : formData.type === 'Money to Get'
+    : formData.type === 'Money to Get' || formData.type === 'Debt Cleared'
     ? 'glass-blue'
     : 'glass-red'
 
@@ -97,7 +97,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
     ? 'text-amber-300'
     : formData.type === 'Income'
     ? 'text-emerald-300'
-    : formData.type === 'Money to Get'
+    : formData.type === 'Money to Get' || formData.type === 'Debt Cleared'
     ? 'text-blue-300'
     : 'text-red-300'
 
@@ -105,7 +105,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
     ? 'bg-amber-500/80 hover:bg-amber-500 text-white shadow-amber-500/20'
     : formData.type === 'Income'
     ? 'bg-emerald-500/80 hover:bg-emerald-500 text-white shadow-emerald-500/20'
-    : formData.type === 'Money to Get'
+    : formData.type === 'Money to Get' || formData.type === 'Debt Cleared'
     ? 'bg-blue-500/80 hover:bg-blue-500 text-white shadow-blue-500/20'
     : 'bg-red-500/80 hover:bg-red-500 text-white shadow-red-500/20'
 
@@ -133,7 +133,8 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
           >
             <option value="Expense">Expense</option>
             <option value="Income">Income</option>
-            <option value="Money to Get">Money to Get</option>
+            <option value="Money to Get">Money to Get (Lent out)</option>
+            <option value="Debt Cleared">Debt Cleared (Received back)</option>
           </select>
         </div>
 
@@ -192,13 +193,16 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
         </div>
 
         <div className="flex flex-col gap-2 lg:col-span-1">
-          <label className="text-label-caps text-on-surface-variant ml-1">Description (Optional)</label>
+          <label className="text-label-caps text-on-surface-variant ml-1">
+            {['Money to Get', 'Debt Cleared'].includes(formData.type) ? 'Person Name / Description' : 'Description (Optional)'}
+          </label>
           <input
             type="text"
-            placeholder="e.g. Groceries"
+            placeholder={['Money to Get', 'Debt Cleared'].includes(formData.type) ? "e.g. John Doe" : "e.g. Groceries"}
             className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full"
             value={formData.desc}
             onChange={(e) => setFormData({ ...formData, desc: e.target.value })}
+            required={['Money to Get', 'Debt Cleared'].includes(formData.type)}
           />
         </div>
 

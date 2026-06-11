@@ -287,6 +287,52 @@ export default function Reports({ transactions }) {
         )}
       </div>
 
+      {/* Active Debts Tracker — blue glass */}
+      <div className="glass-blue rounded-[32px] p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="material-symbols-outlined text-blue-300">payments</span>
+          <h3 className="text-headline-md font-headline-md text-on-surface">Active Debts Tracker</h3>
+        </div>
+
+        {(() => {
+          const debts = {}
+          transactions.forEach(t => {
+            if (t.type === 'Money to Get') {
+              const person = t.desc?.trim() || 'Unknown'
+              debts[person] = (debts[person] || 0) + Number(t.amount)
+            } else if (t.type === 'Debt Cleared') {
+              const person = t.desc?.trim() || 'Unknown'
+              debts[person] = (debts[person] || 0) - Number(t.amount)
+            }
+          })
+          
+          const activeDebts = Object.entries(debts).filter(([_, amt]) => amt > 0).sort((a, b) => b[1] - a[1])
+
+          if (activeDebts.length === 0) {
+            return <p className="text-on-surface-variant py-4 text-center">No active debts to collect.</p>
+          }
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeDebts.map(([person, amount]) => (
+                <div key={person} className="bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col justify-between hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-blue-300">person</span>
+                    </div>
+                    <span className="text-body-lg font-bold text-on-surface truncate">{person}</span>
+                  </div>
+                  <div className="mt-2 text-right">
+                    <span className="text-label-caps text-on-surface-variant block mb-1">STILL OWES</span>
+                    <span className="text-2xl font-bold text-blue-300">₹{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+      </div>
+
       <TransactionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

@@ -24,6 +24,7 @@ export default function TransactionLog({ transactions, fetchTransactions, setEdi
     if (cat.includes('bill') || cat.includes('utilit')) return 'receipt_long'
     if (cat.includes('health') || cat.includes('medic')) return 'medical_services'
     if (cat.includes('entert')) return 'movie'
+    if (type === 'Debt Cleared') return 'task_alt'
     return 'account_balance_wallet'
   }
 
@@ -44,11 +45,13 @@ export default function TransactionLog({ transactions, fetchTransactions, setEdi
             {transactions.map(t => {
               const isIncome = t.type === 'Income'
               const isMTG    = t.type === 'Money to Get'
-              const amountColor = isIncome ? 'text-emerald-400' : isMTG ? 'text-blue-400' : 'text-red-400'
-              const sign        = isIncome ? '+' : isMTG ? '' : '-'
+              const isDebtCleared = t.type === 'Debt Cleared'
+              
+              const amountColor = (isIncome || isDebtCleared) ? 'text-emerald-400' : isMTG ? 'text-blue-400' : 'text-red-400'
+              const sign        = (isIncome || isDebtCleared) ? '+' : isMTG ? '' : '-'
               const icon        = getIconForCategory(t.category, t.type)
 
-              const iconBg = isIncome
+              const iconBg = (isIncome || isDebtCleared)
                 ? 'bg-emerald-500/10 text-emerald-400'
                 : isMTG
                 ? 'bg-blue-500/10 text-blue-400'

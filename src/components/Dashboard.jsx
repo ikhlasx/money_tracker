@@ -47,7 +47,8 @@ export default function Dashboard({ session }) {
       if (!banks[b]) banks[b] = 0
       if (t.type === 'Income') { inc += amt; banks[b] += amt }
       else if (t.type === 'Expense') { exp += amt; banks[b] -= amt }
-      else if (t.type === 'Money to Get') { m += amt }
+      else if (t.type === 'Money to Get') { m += amt; banks[b] -= amt }
+      else if (t.type === 'Debt Cleared') { m -= amt; banks[b] += amt }
     })
     setIncome(inc); setExpense(exp); setMtg(m); setBankBalances(banks)
   }
