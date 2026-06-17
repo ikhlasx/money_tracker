@@ -129,6 +129,35 @@ export default function Reports({ transactions }) {
     document.body.removeChild(link);
   };
 
+  const handleExportCategoryCSV = (catName, stats) => {
+    const catTransactions = transactions
+      .filter(t => t.category === catName && (t.type === 'Income' || t.type === 'Expense'))
+      .sort((a, b) => new Date(b.txn_date) - new Date(a.txn_date));
+
+    const headers = ['Date', 'Description', 'Type', 'Amount'];
+    const rows = catTransactions.map(t => [
+      `"${new Date(t.txn_date).toLocaleDateString()}"`,
+      `"${(t.desc || '').replace(/"/g, '""')}"`,
+      `"${t.type}"`,
+      t.amount
+    ].join(','));
+
+    rows.push('');
+    rows.push(`"Total Income",,,${stats.Income}`);
+    rows.push(`"Total Spent",,,${stats.Expense}`);
+    rows.push(`"Net",,,${stats.Income - stats.Expense}`);
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${catName}_Transactions_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
 
@@ -291,7 +320,14 @@ export default function Reports({ transactions }) {
                       <div className={`w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 ${c.icon}`}>
                         <span className="material-symbols-outlined">{icon}</span>
                       </div>
-                      <h4 className="text-body-lg font-bold text-on-surface">{catName}</h4>
+                      <h4 className="text-body-lg font-bold text-on-surface mr-auto">{catName}</h4>
+                      <button
+                        onClick={() => handleExportCategoryCSV(catName, stats)}
+                        className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-white/20 transition-colors cursor-pointer"
+                        title={`Export ${catName} transactions`}
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-white/70 hover:text-white">download</span>
+                      </button>
                     </div>
 
                     <div className="flex flex-col gap-3">
