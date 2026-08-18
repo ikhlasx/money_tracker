@@ -17,8 +17,19 @@ export default function Dashboard({ session }) {
   const [expense, setExpense] = useState(0)
   const [mtg, setMtg] = useState(0)
   const [bankBalances, setBankBalances] = useState({ Cash: 0, IOB: 0, FED: 0, Other: 0 })
+  const [cardNames, setCardNames] = useState(['Cash', 'IOB', 'FED', 'Other'])
 
-  useEffect(() => { fetchTransactions() }, [])
+  useEffect(() => { fetchTransactions(); fetchCards() }, [])
+
+  const fetchCards = async () => {
+    try {
+      const { data, error } = await supabase.from('cards').select('name').order('id')
+      if (error) throw error
+      if (data && data.length > 0) setCardNames(data.map(c => c.name))
+    } catch (error) {
+      console.error('Error fetching cards (does the "cards" table exist yet?):', error)
+    }
+  }
 
   const fetchTransactions = async () => {
     try {
@@ -30,7 +41,6 @@ export default function Dashboard({ session }) {
         .order('id', { ascending: false })
       if (error) throw error
       setTransactions(data || [])
-      calculateStats(data || [])
     } catch (error) {
       console.error('Error fetching transactions:', error)
     } finally {
@@ -38,9 +48,12 @@ export default function Dashboard({ session }) {
     }
   }
 
+  useEffect(() => { calculateStats(transactions) }, [transactions, cardNames])
+
   const calculateStats = (data) => {
     let inc = 0, exp = 0, m = 0
-    let banks = { Cash: 0, IOB: 0, FED: 0, Other: 0 }
+    let banks = {}
+    cardNames.forEach(name => { banks[name] = 0 })
     data.forEach(t => {
       const amt = Number(t.amount)
       const b = t.bank || 'Cash'

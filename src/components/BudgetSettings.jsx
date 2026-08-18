@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 
+const DEFAULT_CARDS = ['Cash', 'IOB', 'FED', 'Other']
+
 export default function BudgetSettings() {
   const [categories,    setCategories]    = useState([])
   const [transactions,  setTransactions]  = useState([])
@@ -11,7 +13,13 @@ export default function BudgetSettings() {
   const [editingCat,    setEditingCat]    = useState(null)
   const [editBudget,    setEditBudget]    = useState('')
 
-  useEffect(() => { fetchData() }, [])
+  const [cards,         setCards]         = useState([])
+  const [cardsLoading,  setCardsLoading]  = useState(true)
+  const [newCard,       setNewCard]       = useState('')
+  const [addingCard,    setAddingCard]    = useState(false)
+  const [deletingCard,  setDeletingCard]  = useState(null)
+
+  useEffect(() => { fetchData(); fetchCards() }, [])
 
   const fetchData = async () => {
     try {
@@ -33,6 +41,53 @@ export default function BudgetSettings() {
       console.error('Error fetching data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCards = async () => {
+    try {
+      setCardsLoading(true)
+      const { data, error } = await supabase.from('cards').select('id, name').order('id')
+      if (error) throw error
+      setCards(data && data.length > 0 ? data : DEFAULT_CARDS.map(name => ({ name })))
+    } catch (err) {
+      console.error('Error fetching cards (does the "cards" table exist yet?):', err)
+      setCards(DEFAULT_CARDS.map(name => ({ name })))
+    } finally {
+      setCardsLoading(false)
+    }
+  }
+
+  const handleAddCard = async (e) => {
+    e.preventDefault()
+    if (!newCard.trim()) return
+    setAddingCard(true)
+    try {
+      const { error } = await supabase.from('cards').insert([{ name: newCard.trim() }])
+      if (error) throw error
+      setNewCard('')
+      fetchCards()
+    } catch (err) {
+      console.error('Error adding card:', err)
+      alert('Failed to add card. It might already exist, or the "cards" table has not been created in Supabase yet.')
+    } finally {
+      setAddingCard(false)
+    }
+  }
+
+  const handleDeleteCard = async (card) => {
+    if (!card.id) return
+    if (!window.confirm(`Remove card "${card.name}"? Existing transactions on this card will keep their record but it will no longer appear as an option.`)) return
+    setDeletingCard(card.name)
+    try {
+      const { error } = await supabase.from('cards').delete().eq('id', card.id)
+      if (error) throw error
+      fetchCards()
+    } catch (err) {
+      console.error('Error deleting card:', err)
+      alert('Failed to delete card.')
+    } finally {
+      setDeletingCard(null)
     }
   }
 
@@ -172,6 +227,65 @@ export default function BudgetSettings() {
                 {addingCategory ? 'Adding...' : 'Add'}
               </button>
             </form>
+          </div>
+
+          {/* Add card — cyan glass */}
+          <div className="glass-cyan rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 hidden sm:flex">
+              <span className="material-symbols-outlined">add_card</span>
+            </div>
+            <form onSubmit={handleAddCard} className="flex-1 flex w-full flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="New card / account name..."
+                className="input-field rounded-2xl px-4 py-3 flex-1 text-body-lg text-on-surface"
+                value={newCard}
+                onChange={(e) => setNewCard(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                disabled={addingCard}
+                className="bg-cyan-500/80 hover:bg-cyan-500 text-white px-6 py-3 rounded-2xl font-bold active:scale-[0.98] transition-all whitespace-nowrap flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined">add</span>
+                {addingCard ? 'Adding...' : 'Add Card'}
+              </button>
+            </form>
+          </div>
+
+          {/* Cards list — base glass */}
+          <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+            <h2 className="text-headline-md font-headline-md text-on-surface mb-6 flex items-center gap-2">
+              <span className="material-symbols-outlined text-on-surface-variant">credit_card</span>
+              Cards &amp; Accounts
+            </h2>
+
+            {cardsLoading ? (
+              <p className="text-on-surface-variant">Loading cards...</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {cards.map((card) => (
+                  <div
+                    key={card.id || card.name}
+                    className="group flex items-center gap-2 pl-4 pr-2 py-2 rounded-2xl bg-white/8 border border-white/10"
+                  >
+                    <span className="material-symbols-outlined text-on-surface-variant text-[20px]">account_balance_wallet</span>
+                    <span className="text-body-lg font-bold text-on-surface">{card.name}</span>
+                    {card.id && (
+                      <button
+                        onClick={() => handleDeleteCard(card)}
+                        disabled={deletingCard === card.name}
+                        className="w-8 h-8 rounded-full text-on-surface-variant hover:bg-red-500/20 hover:text-red-300 flex items-center justify-center transition-colors"
+                        title={`Remove ${card.name}`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Category limits — base glass */}

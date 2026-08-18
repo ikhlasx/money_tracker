@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 
+const DEFAULT_CARDS = ['Cash', 'IOB', 'FED', 'Other']
+
 export default function TransactionForm({ fetchTransactions, editData, setEditData }) {
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
+  const [cards, setCards] = useState(DEFAULT_CARDS)
 
   const [formData, setFormData] = useState({
     txn_date: new Date().toISOString().split('T')[0],
@@ -14,7 +17,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
     bank: 'Cash'
   })
 
-  useEffect(() => { fetchCategories() }, [])
+  useEffect(() => { fetchCategories(); fetchCards() }, [])
 
   useEffect(() => {
     if (editData) {
@@ -39,6 +42,17 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
       }
     } catch (error) {
       console.error('Error fetching categories', error)
+    }
+  }
+
+  const fetchCards = async () => {
+    try {
+      const { data, error } = await supabase.from('cards').select('name').order('id')
+      if (error) throw error
+      setCards(data && data.length > 0 ? data.map(c => c.name) : DEFAULT_CARDS)
+    } catch (error) {
+      console.error('Error fetching cards (does the "cards" table exist yet?):', error)
+      setCards(DEFAULT_CARDS)
     }
   }
 
@@ -187,10 +201,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
             value={formData.bank}
             onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
           >
-            <option value="Cash">Cash</option>
-            <option value="IOB">IOB</option>
-            <option value="FED">FED</option>
-            <option value="Other">Other</option>
+            {cards.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 

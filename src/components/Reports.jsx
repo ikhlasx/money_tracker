@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import TransactionModal from './TransactionModal'
+import CardDetailModal from './CardDetailModal'
+
+const DEFAULT_CARDS = ['Cash', 'IOB', 'FED', 'Other']
 
 /* Cycle through gradient colours for category cards */
 const CARD_COLORS = [
@@ -16,6 +19,7 @@ const CARD_COLORS = [
 
 export default function Reports({ transactions }) {
   const [categories, setCategories] = useState([])
+  const [cards, setCards] = useState(DEFAULT_CARDS)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear())
 
@@ -23,7 +27,20 @@ export default function Reports({ transactions }) {
   const [modalCategory, setModalCategory] = useState('')
   const [modalType, setModalType]       = useState('Income')
 
-  useEffect(() => { fetchCategories() }, [])
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false)
+  const [selectedCard, setSelectedCard] = useState('')
+
+  useEffect(() => { fetchCategories(); fetchCards() }, [])
+
+  const fetchCards = async () => {
+    try {
+      const { data, error } = await supabase.from('cards').select('name').order('id')
+      if (error) throw error
+      setCards(data && data.length > 0 ? data.map(c => c.name) : DEFAULT_CARDS)
+    } catch (err) {
+      console.error('Error fetching cards for reports (does the "cards" table exist yet?):', err)
+    }
+  }
 
   const fetchCategories = async () => {
     try {
@@ -78,9 +95,38 @@ export default function Reports({ transactions }) {
   const years  = Array.from(new Set(transactions.map(t => new Date(t.txn_date).getFullYear()))).sort((a, b) => b - a)
   if (years.length === 0) years.push(new Date().getFullYear())
 
+  const cardBalances = useMemo(() => {
+    const balances = {}
+    cards.forEach(name => { balances[name] = 0 })
+    transactions.forEach(t => {
+      const b = t.bank || 'Cash'
+      if (!(b in balances)) balances[b] = 0
+      const amt = Number(t.amount)
+      if (t.type === 'Income' || t.type === 'Debt Cleared') balances[b] += amt
+      else if (t.type === 'Expense' || t.type === 'Money to Get') balances[b] -= amt
+    })
+    return balances
+  }, [transactions, cards])
+
   const handleOpenModal = (category, type) => {
     setModalCategory(category); setModalType(type); setIsModalOpen(true)
   }
+
+  const handleOpenCardModal = (cardName) => {
+    setSelectedCard(cardName); setIsCardModalOpen(true)
+  }
+
+  const cardModalTransactions = useMemo(() => {
+    if (!isCardModalOpen) return []
+    return transactions
+      .filter(t => {
+        const b = t.bank || 'Cash'
+        if (b !== selectedCard) return false
+        const d = new Date(t.txn_date)
+        return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear
+      })
+      .sort((a, b) => new Date(b.txn_date) - new Date(a.txn_date))
+  }, [isCardModalOpen, selectedCard, transactions, selectedMonth, selectedYear])
 
   const modalTransactions = useMemo(() => {
     if (!isModalOpen) return []
@@ -183,6 +229,34 @@ export default function Reports({ transactions }) {
         >
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+      </div>
+
+      {/* Card Balances — cyan glass */}
+      <div className="glass-cyan rounded-[32px] p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="material-symbols-outlined text-cyan-300">credit_card</span>
+          <h3 className="text-headline-md font-headline-md text-on-surface mr-auto">Card Balances</h3>
+          <span className="text-body-sm text-on-surface-variant">Tap a card for {months[selectedMonth]} {selectedYear} activity</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Object.entries(cardBalances).map(([cardName, bal], idx) => {
+            const c = CARD_COLORS[idx % CARD_COLORS.length]
+            return (
+              <button
+                key={cardName}
+                onClick={() => handleOpenCardModal(cardName)}
+                className={`${c.card} flex flex-col items-start p-5 rounded-2xl text-left cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all`}
+              >
+                <span className={`material-symbols-outlined mb-2 ${c.icon}`}>account_balance_wallet</span>
+                <span className={`text-body-sm mb-1 ${c.label}`}>{cardName}</span>
+                <span className={`text-xl font-bold ${c.value}`}>
+                  ₹{bal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -435,6 +509,15 @@ export default function Reports({ transactions }) {
         category={modalCategory}
         type={modalType}
         transactions={modalTransactions}
+      />
+
+      <CardDetailModal
+        isOpen={isCardModalOpen}
+        onClose={() => setIsCardModalOpen(false)}
+        cardName={selectedCard}
+        periodLabel={`${months[selectedMonth]} ${selectedYear}`}
+        balance={cardBalances[selectedCard] || 0}
+        transactions={cardModalTransactions}
       />
     </div>
   )
