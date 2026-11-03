@@ -106,9 +106,22 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         if (!amount) { uncertain.add('amount'); warnings.push("Couldn't read the amount.") }
         else if (!p.amountConfident) uncertain.add('amount')
 
-        if (!p.txn_date) uncertain.add('txn_date')
+        if (!p.txn_date) {
+          uncertain.add('txn_date')
+          if (!p.shareText) warnings.push("Couldn't read the date — set to today.")
+        } else if (p.txn_date > today()) {
+          uncertain.add('txn_date')
+          warnings.push('The date read is in the future — check it.')
+        }
 
-        let cat = matchCategory(p.note, categories, loadShortcuts())
+        // Try each possible note line until one maps to a category.
+        const shortcuts = loadShortcuts()
+        let cat = null
+        let note = p.note
+        for (const cand of p.noteCandidates || []) {
+          cat = matchCategory(cand, categories, shortcuts)
+          if (cat) { note = cand; break }
+        }
         if (!cat) cat = matchFromHistory(p.payee, txnsRef.current, categories)
         if (!cat || cat.ambiguous) uncertain.add('category')
 
@@ -136,7 +149,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
 
         // Keep the note in the description unless it was used as the category code.
         const noteUsed = cat && (cat.source === 'note' || cat.source === 'shortcut')
-        const desc = [p.payee, !noteUsed && p.note ? p.note : ''].filter(Boolean).join(' · ')
+        const desc = [p.payee, !noteUsed && note ? note : ''].filter(Boolean).join(' · ')
 
         const draft = {
           type: p.type,
@@ -152,7 +165,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         }
 
         setForm(draft)
-        setInfo({ note: p.note, bankName: p.bankName, extraBank: rule && rule.card && !rule.known ? rule.card : null, categorySource: cat?.source || null, warnings, uncertain })
+        setInfo({ note, rawText: ocr.text, bankName: p.bankName, extraBank: rule && rule.card && !rule.known ? rule.card : null, categorySource: cat?.source || null, warnings, uncertain })
         setPhase('review')
 
         // Text arriving through a link always waits for a tap, so a crafted
@@ -320,6 +333,12 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
                 <input type="text" className={field} value={form.desc} onChange={set('desc')} />
               </label>
             </div>
+          )}
+          {info?.rawText && phase !== 'reading' && (
+            <details className="text-body-sm text-on-surface-variant">
+              <summary className="cursor-pointer select-none py-1">Show what was read</summary>
+              <pre className="mt-2 p-3 rounded-xl bg-black/30 text-[12px] leading-snug whitespace-pre-wrap break-words max-h-60 overflow-y-auto">{info.rawText}</pre>
+            </details>
           )}
         </div>
 

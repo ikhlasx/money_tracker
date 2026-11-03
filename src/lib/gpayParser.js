@@ -1,7 +1,6 @@
 // Parses OCR output of a Google Pay "transaction details" screenshot into a
 // transaction draft, and maps the payment note (e.g. "fod", "pe") to a category.
 
-const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
 const STOPWORDS = new Set(['of', 'the', 'and', '&'])
 
 export const norm = (s) =>
@@ -74,14 +73,76 @@ function reconcileAmount(hero, sentence) {
   return { amount: null, confident: false }
 }
 
-function parseDate(text) {
-  const m = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})\b/)
-  if (!m) return null
-  const month = MONTHS[m[2].slice(0, 3).toLowerCase()]
-  const day = parseInt(m[1], 10)
-  const year = parseInt(m[3], 10)
-  if (!month || day < 1 || day > 31 || year < 2000) return null
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+// OCR swaps look-alike characters in month names: "0ct", "N0v", "Ju1", "JuI",
+// "5ept", "Fe8", "Au9". Map them back before looking the month up.
+const OCR_LETTER = { 0: 'o', 1: 'l', '|': 'l', 5: 's', 8: 'b', 9: 'g', 6: 'g' }
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+const monthNum = (word) => {
+  let w = String(word).toLowerCase().replace(/[0158|69]/g, (c) => OCR_LETTER[c])
+  if (/^ju[il]/.test(w)) w = 'jul' + w.slice(3) // "JuI"/"Ju1" → Jul (June is "Jun")
+  // Must be the start of a real month name ("sep", "sept", "october"),
+  // so words like "Mark" or "Decline" are not taken as months.
+  const i = MONTH_NAMES.findIndex((name) => w.length >= 3 && name.startsWith(w))
+  return i >= 0 ? i + 1 : null
+}
+
+// Digits that OCR turned into letters inside numbers ("2O26", "l5").
+const fixDigits = (s) => String(s).replace(/[Oo]/g, '0').replace(/[lI|]/g, '1')
+
+/** A real calendar date as YYYY-MM-DD, or null (rejects 31 Feb, 31 Apr, …). */
+const ymd = (year, month, day) => {
+  const y = parseInt(fixDigits(year), 10)
+  const m = typeof month === 'number' ? month : parseInt(fixDigits(month), 10)
+  const d = parseInt(fixDigits(day), 10)
+  if (!m || m < 1 || m > 12 || !d || d < 1 || y < 2000 || y > 2100) return null
+  const check = new Date(Date.UTC(y, m - 1, d))
+  if (check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+const localYmd = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const DAY = '([0-3Oo]?[0-9Oo]|[0-9])'
+const MON = '([A-Za-z05][A-Za-z0158|69]{2,8})'
+const YEAR = '((?:19|20|2O)[0-9Oo]{2})'
+
+export function parseDate(text, now = new Date()) {
+  const t = String(text)
+  const patterns = [
+    // 29 Sept 2026 · 3 Oct 2026 · 03 0ct, 2026 · 3rd October 2026 · 3-Oct-2026
+    [new RegExp(`\\b${DAY}(?:st|nd|rd|th)?[\\s.\\-/]+${MON}\\.?,?[\\s.\\-/]+${YEAR}\\b`, 'g'), (m) => ymd(m[3], monthNum(m[2]), m[1])],
+    // Oct 3, 2026 · October 03 2026
+    [new RegExp(`\\b${MON}\\.?\\s+${DAY}(?:st|nd|rd|th)?,?\\s+${YEAR}\\b`, 'g'), (m) => ymd(m[3], monthNum(m[1]), m[2])],
+    // 03/10/2026 · 3-10-2026 · 03.10.2026 (day first, Indian format)
+    [/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/g, (m) => ymd(m[3], m[2], m[1])],
+    // 2026-10-03
+    [/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g, (m) => ymd(m[1], m[2], m[3])],
+  ]
+  for (const [re, build] of patterns) {
+    for (const m of t.matchAll(re)) {
+      const d = build(m)
+      if (d) return d
+    }
+  }
+  // Recent payments can show "Today, 12:40 pm" / "Yesterday" instead of a date.
+  if (/\btoday\b/i.test(t)) return localYmd(now)
+  if (/\byesterday\b/i.test(t)) {
+    const y = new Date(now)
+    y.setDate(y.getDate() - 1)
+    return localYmd(y)
+  }
+  // Day and month without a year ("3 Oct, 12:40 pm"): use the most recent such date.
+  const short = t.match(new RegExp(`\\b${DAY}(?:st|nd|rd|th)?\\s+${MON}\\b\\.?,?(?!\\s*(?:19|20|2O)[0-9Oo]{2})`))
+  if (short) {
+    const m = monthNum(short[2])
+    if (m) {
+      let d = ymd(now.getFullYear(), m, short[1])
+      if (d && d > localYmd(now)) d = ymd(now.getFullYear() - 1, m, short[1])
+      if (d) return d
+    }
+  }
+  return null
 }
 
 /** Matches an OCR'd bank name ("Federal Bank") to one of the user's card names ("FED"). */
@@ -169,6 +230,7 @@ export function parseGpay({ text, words = [] }) {
       type: share[3].toLowerCase() === 'from' ? 'Income' : 'Expense',
       payee: share[4].trim(),
       note: '',
+      noteCandidates: [],
       amount: toNumber(share[2]),
       amountConfident: true,
       txn_date: parseDate(text),
@@ -201,14 +263,22 @@ export function parseGpay({ text, words = [] }) {
     }
   }
 
-  // The note sits between the header/amount and the status line.
-  let note = ''
-  for (let i = headerIdx + 1; i < headEnd; i++) {
+  // The note sits near the amount, between the header and the date/status.
+  // Collect every plausible line; the caller picks the first that maps to a
+  // category. Skips the amount (also when ₹ is misread as a letter, "Z38"),
+  // the status line, the date, and long sentences.
+  const dateIdx = lines.findIndex((l) => parseDate(l))
+  const noteEnd = Math.min(lines.length, Math.max(headEnd, dateIdx >= 0 ? dateIdx : 0, headerIdx + 1) + 2, headerIdx + 8)
+  const noteCandidates = []
+  for (let i = headerIdx + 1; i < noteEnd; i++) {
     const l = lines[i]
-    if (/^\W*[\d,.]+\W*$/.test(l) || !/[a-z]/i.test(l)) continue
-    note = l.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '')
-    break
+    if (i === statusIdx || i === dateIdx) continue
+    if (!/[a-z]/i.test(l) || /^\W*[a-z]?\W*[\d,.]+\W*$/i.test(l)) continue
+    if (/google pay|transaction|bank|completed|successful|pending|failed/i.test(l)) continue
+    const cleaned = l.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '')
+    if (cleaned && cleaned.length <= 40) noteCandidates.push(cleaned)
   }
+  const note = noteCandidates[0] || ''
 
   const hero = heroAmountFromWords(words)
   let heroFallback = null
@@ -251,6 +321,7 @@ export function parseGpay({ text, words = [] }) {
     type,
     payee,
     note,
+    noteCandidates,
     amount,
     amountConfident,
     txn_date: parseDate(text),
