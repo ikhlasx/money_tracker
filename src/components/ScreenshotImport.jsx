@@ -95,7 +95,9 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         const uncertain = new Set()
         const warnings = []
 
-        if (!p.isGpay) warnings.push("This doesn't look like a Google Pay payment screen — check every field.")
+        if (p.shareText) {
+          warnings.push("GPay's Share button only sends the amount and payee — no note, date or bank. For those, share a screenshot of the payment instead.")
+        } else if (!p.isGpay) warnings.push("This doesn't look like a Google Pay payment screen — check every field.")
         if (p.status && !/completed|successful/i.test(p.status)) warnings.push(`Payment status is "${p.status}".`)
 
         const amount = p.amount
@@ -118,7 +120,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         const draft = {
           type: p.type,
           amount: amount ? String(amount) : '',
-          category: cat?.category || categories[0] || '',
+          category: cat?.category || '',
           txn_date: p.txn_date || today(),
           bank: bank || cards[0] || 'Cash',
           desc,
@@ -162,6 +164,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
     stopCountdown()
     const amount = parseFloat(form.amount)
     if (!amount || amount <= 0) { alert('Enter a valid amount.'); return }
+    if (!form.category) { alert('Choose a category.'); return }
     setPhase('saving')
     try {
       const { data, error } = await supabase.from('transactions').insert([{ ...form, amount }]).select().single()
@@ -275,6 +278,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
                   Category {sourceLabel && <span className="normal-case tracking-normal font-normal opacity-70">· {sourceLabel}</span>}
                 </span>
                 <select className={`${field} appearance-none ${dropdownArrow} ${flag('category')}`} value={form.category} onChange={set('category')}>
+                  {!form.category && <option value="" disabled>Choose category…</option>}
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>

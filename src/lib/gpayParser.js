@@ -161,6 +161,25 @@ export function findDuplicate(draft, transactions) {
 
 /** Raw extraction from OCR output — no knowledge of the user's categories/cards. */
 export function parseGpay({ text, words = [] }) {
+  // GPay's own "Share" button sends one line instead of the screen, e.g.
+  // "1790650202 - 38.00 To FARSA HOTEL on Google Pay" — no note, date or bank.
+  const share = text.match(/(?:^|\s)(\d{6,})?\s*[-–]?\s*(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d{1,2})?)\s+(to|from)\s+(.+?)\s+(?:on|via|using)\s+google\s*pay/i)
+  if (share && !/upi transaction id/i.test(text)) {
+    return {
+      type: share[3].toLowerCase() === 'from' ? 'Income' : 'Expense',
+      payee: share[4].trim(),
+      note: '',
+      amount: toNumber(share[2]),
+      amountConfident: true,
+      txn_date: parseDate(text),
+      bankName: '',
+      status: '',
+      upiId: share[1] || '',
+      isGpay: true,
+      shareText: true,
+    }
+  }
+
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
 
   const statusIdx = lines.findIndex((l) => /\b(completed|successful|pending|failed|declined|processing)\b/i.test(l))
