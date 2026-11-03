@@ -172,6 +172,19 @@ const isSubsequence = (needle, hay) => {
  * Maps a short note ("fod", "pe") to a category. Order: learned shortcut →
  * exact → prefix → abbreviation (letters in order, same first letter).
  */
+// Fixed note codes. Each maps to the first of your categories whose name
+// matches one of the targets (in order), so "pe" finds "Petrol", or "Fuel"
+// if you have no Petrol category.
+export const BUILTIN_CODES = {
+  pe: ['petrol', 'fuel'],
+  pet: ['petrol', 'fuel'],
+  ptl: ['petrol', 'fuel'],
+  ptrl: ['petrol', 'fuel'],
+  petrl: ['petrol', 'fuel'],
+  fod: ['food'],
+  fd: ['food'],
+}
+
 export function matchCategory(note, categories, shortcuts = {}) {
   const n = compact(note)
   if (!n) return null
@@ -179,6 +192,14 @@ export function matchCategory(note, categories, shortcuts = {}) {
   if (learned && categories.includes(learned)) return { category: learned, source: 'shortcut', ambiguous: false }
 
   const cats = categories.map((c) => ({ name: c, key: compact(c) })).filter((c) => c.key)
+
+  for (const target of BUILTIN_CODES[n] || []) {
+    const hit = cats.find((c) => c.key === target) || cats.find((c) => c.key.includes(target))
+    if (hit) return { category: hit.name, source: 'note', ambiguous: false }
+  }
+  // A fixed code whose category doesn't exist must not fall through to a
+  // look-alike ("pe" → "Personal"); leave it for the user to pick.
+  if (BUILTIN_CODES[n]) return null
   const exact = cats.find((c) => c.key === n)
   if (exact) return { category: exact.name, source: 'note', ambiguous: false }
 
