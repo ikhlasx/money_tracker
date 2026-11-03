@@ -3,13 +3,22 @@ import { supabase } from '../supabaseClient'
 
 const DEFAULT_CARDS = ['Cash', 'IOB', 'FED', 'Other']
 
+const getTodayDate = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function TransactionForm({ fetchTransactions, editData, setEditData }) {
   const [loading, setLoading] = useState(false)
+  const [savedNotice, setSavedNotice] = useState(false)
   const [categories, setCategories] = useState([])
   const [cards, setCards] = useState(DEFAULT_CARDS)
 
   const [formData, setFormData] = useState({
-    txn_date: new Date().toISOString().split('T')[0],
+    txn_date: getTodayDate(),
     type: 'Expense',
     category: '',
     desc: '',
@@ -22,7 +31,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
   useEffect(() => {
     if (editData) {
       setFormData({
-        txn_date: editData.txn_date,
+        txn_date: editData.txn_date ? editData.txn_date.split('T')[0] : getTodayDate(),
         type: editData.type,
         category: editData.category,
         desc: editData.desc || '',
@@ -68,16 +77,19 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
         const { error } = await supabase.from('transactions').insert([payload])
         if (error) throw error
       }
-      setFormData({
-        txn_date: new Date().toISOString().split('T')[0],
-        type: 'Expense',
-        category: categories.length > 0 ? categories[0] : '',
-        desc: '',
+
+      // Keep the selected date and account so consecutive old logs can be entered smoothly
+      setFormData(prev => ({
+        ...prev,
+        txn_date: prev.txn_date,
         amount: '',
-        bank: 'Cash'
-      })
+        desc: '',
+        category: categories.length > 0 ? categories[0] : ''
+      }))
       setEditData(null)
       fetchTransactions()
+      setSavedNotice(true)
+      setTimeout(() => setSavedNotice(false), 3000)
     } catch (error) {
       console.error('Error saving transaction', error)
       alert('Error saving transaction: ' + error.message)
@@ -89,7 +101,7 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
   const handleCancel = () => {
     setEditData(null)
     setFormData({
-      txn_date: new Date().toISOString().split('T')[0],
+      txn_date: getTodayDate(),
       type: 'Expense',
       category: categories.length > 0 ? categories[0] : '',
       desc: '',
@@ -184,7 +196,20 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-label-caps text-on-surface-variant ml-1">Date</label>
+          <div className="flex items-center justify-between ml-1">
+            <label className="text-label-caps text-on-surface-variant">Date</label>
+            {formData.txn_date !== getTodayDate() && (
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, txn_date: getTodayDate() }))}
+                className="text-label-caps text-blue-300 hover:text-blue-200 transition-colors flex items-center gap-1 cursor-pointer font-semibold"
+                title="Reset date to today"
+              >
+                <span className="material-symbols-outlined text-[15px]">today</span>
+                Reset to Today
+              </button>
+            )}
+          </div>
           <input
             type="date"
             className="input-field rounded-2xl px-4 py-3.5 text-body-lg text-on-surface w-full"
@@ -192,6 +217,12 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
             onChange={(e) => setFormData({ ...formData, txn_date: e.target.value })}
             required
           />
+          {formData.txn_date !== getTodayDate() && (
+            <p className="text-[12px] text-blue-300/80 ml-1 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">event_repeat</span>
+              Selected date is retained for next logs
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-1">
@@ -215,6 +246,15 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
             onChange={(e) => setFormData({ ...formData, desc: e.target.value })}
           />
         </div>
+
+        {savedNotice && (
+          <div className="col-span-full flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-body-sm animate-fade-in">
+            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+            <span>
+              Transaction saved! {formData.txn_date !== getTodayDate() ? `Date (${formData.txn_date}) retained for next entry.` : 'Ready for next entry.'}
+            </span>
+          </div>
+        )}
 
         <div className="col-span-full flex flex-col sm:flex-row gap-4 mt-2">
           <button
