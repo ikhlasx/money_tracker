@@ -58,6 +58,38 @@ export default function Reports({ transactions }) {
 
   const expenses = useMemo(() => transactions.filter(t => t.type === 'Expense'), [transactions])
 
+  // Income / spent / lent totals per month, keyed 'YYYY-M'.
+  const totalsByMonth = useMemo(() => {
+    const map = {}
+    transactions.forEach(t => {
+      const d = new Date(t.txn_date)
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      if (!map[key]) map[key] = { income: 0, spent: 0, lent: 0, received: 0 }
+      const amt = Number(t.amount) || 0
+      if (t.type === 'Income') map[key].income += amt
+      else if (t.type === 'Expense') map[key].spent += amt
+      else if (t.type === 'Money to Get') map[key].lent += amt
+      else if (t.type === 'Debt Cleared') map[key].received += amt
+    })
+    return map
+  }, [transactions])
+
+  const monthTotals = (m, y) => totalsByMonth[`${y}-${m}`] || { income: 0, spent: 0, lent: 0, received: 0 }
+  const thisMonth = monthTotals(selectedMonth, selectedYear)
+  const prevMonth = selectedMonth === 0 ? monthTotals(11, selectedYear - 1) : monthTotals(selectedMonth - 1, selectedYear)
+  const left = thisMonth.income - thisMonth.spent
+  const spentPct = thisMonth.income > 0 ? (thisMonth.spent / thisMonth.income) * 100 : 0
+  const spendChange = thisMonth.spent - prevMonth.spent
+
+  const monthlyIncomeByCategory = useMemo(() => {
+    const totals = {}
+    transactions
+      .filter(t => t.type === 'Income')
+      .filter(t => { const d = new Date(t.txn_date); return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear })
+      .forEach(t => { totals[t.category] = (totals[t.category] || 0) + Number(t.amount) })
+    return totals
+  }, [transactions, selectedMonth, selectedYear])
+
   const monthlyExpensesByCategory = useMemo(() => {
     const totals = {}
     expenses
@@ -94,6 +126,28 @@ export default function Reports({ transactions }) {
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
   const years  = Array.from(new Set(transactions.map(t => new Date(t.txn_date).getFullYear()))).sort((a, b) => b - a)
   if (years.length === 0) years.push(new Date().getFullYear())
+
+  const fmt = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`
+  const now = new Date()
+  // Months of the selected year with activity (plus every month so far this year).
+  const yearRows = months
+    .map((name, m) => ({ name, m, ...monthTotals(m, selectedYear) }))
+    .filter(r => r.income || r.spent || (selectedYear === now.getFullYear() && r.m <= now.getMonth()))
+  const yearTotal = yearRows.reduce((a, r) => ({ income: a.income + r.income, spent: a.spent + r.spent }), { income: 0, spent: 0 })
+  const yearLeft = yearTotal.income - yearTotal.spent
+
+  const handleExportMonthlyCSV = () => {
+    const rows = yearRows.map(r => [`"${r.name} ${selectedYear}"`, r.income, r.spent, r.income - r.spent].join(','))
+    rows.push(`"Total ${selectedYear}",${yearTotal.income},${yearTotal.spent},${yearLeft}`)
+    const csv = ['Month,Income,Spent,Left', ...rows].join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `Monthly_Income_vs_Expense_${selectedYear}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   const cardBalances = useMemo(() => {
     const balances = {}
@@ -231,6 +285,61 @@ export default function Reports({ transactions }) {
         </select>
       </div>
 
+      {/* Month summary — income vs spent, how much is left */}
+      <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-5">
+          <span className="material-symbols-outlined text-on-surface-variant">account_balance_wallet</span>
+          <h3 className="text-headline-md font-headline-md text-on-surface">{months[selectedMonth]} {selectedYear}</h3>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="glass-green rounded-2xl p-4 min-w-0">
+            <p className="text-label-caps text-emerald-300/70 mb-1">INCOME</p>
+            <p className="text-lg sm:text-2xl font-bold text-emerald-100 truncate">{fmt(thisMonth.income)}</p>
+          </div>
+          <div className="glass-red rounded-2xl p-4 min-w-0">
+            <p className="text-label-caps text-red-300/70 mb-1">SPENT</p>
+            <p className="text-lg sm:text-2xl font-bold text-red-100 truncate">{fmt(thisMonth.spent)}</p>
+          </div>
+          <div className={`${left >= 0 ? 'glass-amber' : 'glass-red'} rounded-2xl p-4 min-w-0`}>
+            <p className={`text-label-caps mb-1 ${left >= 0 ? 'text-amber-300/70' : 'text-red-300/70'}`}>{left >= 0 ? 'LEFT' : 'OVERSPENT'}</p>
+            <p className={`text-lg sm:text-2xl font-bold truncate ${left >= 0 ? 'text-amber-100' : 'text-red-100'}`}>{fmt(Math.abs(left))}</p>
+          </div>
+        </div>
+
+        {thisMonth.income > 0 ? (
+          <div className="mt-5">
+            <div className="flex justify-between gap-3 text-body-sm text-on-surface-variant mb-2">
+              <span>Spent {Math.round(spentPct)}% of income</span>
+              <span>{left >= 0 ? `Saved ${Math.round(100 - spentPct)}%` : `${fmt(-left)} more than earned`}</span>
+            </div>
+            <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${spentPct > 100 ? 'bg-red-400' : spentPct > 80 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                style={{ width: `${Math.min(spentPct, 100)}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-body-sm text-on-surface-variant">
+            No income logged for this month. Add your salary or other money in with type "Income" to see what's left.
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap gap-x-6 gap-y-1 text-body-sm text-on-surface-variant">
+          {(prevMonth.spent > 0 || thisMonth.spent > 0) && (
+            spendChange === 0
+              ? <span>Spending is the same as last month</span>
+              : <span>
+                  Spent <span className={spendChange > 0 ? 'text-red-300' : 'text-emerald-300'}>{fmt(Math.abs(spendChange))} {spendChange > 0 ? 'more' : 'less'}</span> than last month
+                </span>
+          )}
+          {(thisMonth.lent > 0 || thisMonth.received > 0) && (
+            <span>Lent {fmt(thisMonth.lent)} · got back {fmt(thisMonth.received)} (not counted above)</span>
+          )}
+        </div>
+      </div>
+
       {/* Card Balances — cyan glass */}
       <div className="glass-cyan rounded-[32px] p-6 lg:p-8">
         <div className="flex items-center gap-3 mb-6">
@@ -268,6 +377,23 @@ export default function Reports({ transactions }) {
             <h3 className="text-headline-md font-headline-md text-on-surface">Monthly Report ({months[selectedMonth]})</h3>
           </div>
 
+          <p className="text-label-caps text-emerald-300/80 mb-3">INCOME · {fmt(thisMonth.income)}</p>
+          {Object.keys(monthlyIncomeByCategory).length === 0 ? (
+            <p className="text-on-surface-variant text-body-sm mb-6">No income this month.</p>
+          ) : (
+            <div className="flex flex-col gap-2 mb-6">
+              {Object.entries(monthlyIncomeByCategory)
+                .sort((a, b) => b[1] - a[1])
+                .map(([catName, amount]) => (
+                  <div key={catName} className="flex justify-between items-center">
+                    <span className="text-body-lg font-bold text-on-surface">{catName}</span>
+                    <span className="font-bold text-emerald-300">{fmt(amount)}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <p className="text-label-caps text-red-300/80 mb-3 pt-4 border-t border-white/10">SPENDING · {fmt(thisMonth.spent)}</p>
           {Object.keys(monthlyExpensesByCategory).length === 0 ? (
             <p className="text-on-surface-variant py-4 text-center">No expenses this month.</p>
           ) : (
@@ -338,11 +464,58 @@ export default function Reports({ transactions }) {
 
       </div>
 
+      {/* Month by month — income vs spent across the year */}
+      <div className="card-tint-primary rounded-[32px] p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-5">
+          <span className="material-symbols-outlined text-on-surface-variant">calendar_view_month</span>
+          <h3 className="text-headline-md font-headline-md text-on-surface mr-auto">Month by Month ({selectedYear})</h3>
+          <button
+            onClick={handleExportMonthlyCSV}
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/15 text-on-surface px-4 py-2 rounded-xl transition-colors cursor-pointer"
+            title="Export to Excel (CSV)"
+          >
+            <span className="material-symbols-outlined text-[20px]">download</span>
+            <span className="text-body-sm font-bold hidden sm:inline">Export</span>
+          </button>
+        </div>
+
+        {yearRows.length === 0 ? (
+          <p className="text-on-surface-variant py-4 text-center">No transactions this year.</p>
+        ) : (
+          <div className="-mx-2">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-2 pb-2 text-label-caps text-on-surface-variant">
+              <span>MONTH</span><span className="text-right">INCOME</span><span className="text-right">SPENT</span><span className="text-right">LEFT</span>
+            </div>
+            {yearRows.map(r => {
+              const l = r.income - r.spent
+              return (
+                <button
+                  key={r.m}
+                  onClick={() => { setSelectedMonth(r.m); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                  className={`w-full grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-2 py-3 rounded-xl text-left text-body-sm transition-colors ${r.m === selectedMonth ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                >
+                  <span className="font-bold text-on-surface truncate">{r.name.slice(0, 3)}</span>
+                  <span className="text-right text-emerald-300 tabular-nums">{fmt(r.income)}</span>
+                  <span className="text-right text-red-300 tabular-nums">{fmt(r.spent)}</span>
+                  <span className={`text-right font-bold tabular-nums ${l >= 0 ? 'text-amber-200' : 'text-red-400'}`}>{l < 0 ? '−' : ''}{fmt(Math.abs(l))}</span>
+                </button>
+              )
+            })}
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-2 pt-3 mt-1 border-t border-white/10 text-body-sm">
+              <span className="font-bold text-on-surface">Total</span>
+              <span className="text-right font-bold text-emerald-300 tabular-nums">{fmt(yearTotal.income)}</span>
+              <span className="text-right font-bold text-red-300 tabular-nums">{fmt(yearTotal.spent)}</span>
+              <span className={`text-right font-bold tabular-nums ${yearLeft >= 0 ? 'text-amber-200' : 'text-red-400'}`}>{yearLeft < 0 ? '−' : ''}{fmt(Math.abs(yearLeft))}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Yearly Report — green glass */}
       <div className="glass-green rounded-[32px] p-6 lg:p-8">
         <div className="flex items-center gap-3 mb-6">
           <span className="material-symbols-outlined text-emerald-300">trending_up</span>
-          <h3 className="text-headline-md font-headline-md text-on-surface">Yearly Report ({selectedYear})</h3>
+          <h3 className="text-headline-md font-headline-md text-on-surface">Yearly Spending by Category ({selectedYear})</h3>
         </div>
 
         {Object.keys(yearlyExpensesByCategory).length === 0 ? (
