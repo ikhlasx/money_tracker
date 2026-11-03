@@ -6,6 +6,7 @@ import { parseGpay, matchCard, matchCategory, matchFromHistory, findDuplicate, n
 const DEFAULT_CARDS = ['Cash', 'IOB', 'FED', 'Other']
 const SHORTCUTS_KEY = 'gpay-note-shortcuts'
 const AUTO_SAVE_SECONDS = 4
+const LAST_BANK_KEY = 'gpay-last-bank'
 
 const loadShortcuts = () => {
   try { return JSON.parse(localStorage.getItem(SHORTCUTS_KEY) || '{}') || {} } catch { return {} }
@@ -110,7 +111,16 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         if (!cat) cat = matchFromHistory(p.payee, txnsRef.current, categories)
         if (!cat || cat.ambiguous) uncertain.add('category')
 
-        const bank = matchCard(p.bankName, cards)
+        // No bank in the text (GPay's Share button)? Use the account last used for
+        // this payee, then the account of the last import.
+        let bank = matchCard(p.bankName, cards)
+        if (!bank && !p.bankName) {
+          const pn = norm(p.payee)
+          const prev = pn && txnsRef.current.find((t) => norm((t.desc || '').split(' · ')[0]) === pn && cards.includes(t.bank))
+          let lastBank = null
+          try { lastBank = localStorage.getItem(LAST_BANK_KEY) } catch { /* ignore */ }
+          bank = prev?.bank || (cards.includes(lastBank) ? lastBank : null)
+        }
         if (!bank) uncertain.add('bank')
 
         // Keep the note in the description unless it was used as the category code.
@@ -170,6 +180,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
       const { data, error } = await supabase.from('transactions').insert([{ ...form, amount }]).select().single()
       if (error) throw error
       if (info?.note && form.category) saveShortcut(info.note, form.category)
+      try { localStorage.setItem(LAST_BANK_KEY, form.bank) } catch { /* ignore */ }
       onSaved?.(data)
       next()
     } catch (err) {
@@ -187,7 +198,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
   const flag = (key) => (info?.uncertain.has(key) ? 'ring-2 ring-amber-400/70' : '')
 
   const dropdownArrow = "bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjYzRjN2M4IiBkPSJNNyAxMGw1IDUgNS01eiIvPjwvc3ZnPg==')] bg-no-repeat bg-[position:right_12px_center]"
-  const field = 'input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface w-full'
+  const field = 'input-field rounded-2xl px-4 py-3 text-body-lg text-on-surface w-full min-w-0'
 
   const sourceLabel = {
     note: `from note "${info?.note}"`,
@@ -260,7 +271,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
 
           {(phase === 'review' || phase === 'saving') && form && (
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1">
+              <label className="flex flex-col gap-1 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">Type</span>
                 <select className={`${field} appearance-none ${dropdownArrow}`} value={form.type} onChange={set('type')}>
                   <option value="Expense">Expense</option>
@@ -269,11 +280,11 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
                   <option value="Debt Cleared">Debt Cleared</option>
                 </select>
               </label>
-              <label className="flex flex-col gap-1">
+              <label className="flex flex-col gap-1 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">Amount (₹)</span>
                 <input type="number" step="0.01" min="0" inputMode="decimal" className={`${field} ${flag('amount')}`} value={form.amount} onChange={set('amount')} />
               </label>
-              <label className="flex flex-col gap-1 col-span-2">
+              <label className="flex flex-col gap-1 col-span-2 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">
                   Category {sourceLabel && <span className="normal-case tracking-normal font-normal opacity-70">· {sourceLabel}</span>}
                 </span>
@@ -282,17 +293,17 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
-              <label className="flex flex-col gap-1">
+              <label className="flex flex-col gap-1 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">Date</span>
-                <input type="date" className={`${field} ${flag('txn_date')}`} value={form.txn_date} onChange={set('txn_date')} />
+                <input type="date" className={`${field} appearance-none text-left ${flag('txn_date')}`} value={form.txn_date} onChange={set('txn_date')} />
               </label>
-              <label className="flex flex-col gap-1">
+              <label className="flex flex-col gap-1 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">Account</span>
                 <select className={`${field} appearance-none ${dropdownArrow} ${flag('bank')}`} value={form.bank} onChange={set('bank')}>
                   {cards.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 col-span-2">
+              <label className="flex flex-col gap-1 col-span-2 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">Description</span>
                 <input type="text" className={field} value={form.desc} onChange={set('desc')} />
               </label>
