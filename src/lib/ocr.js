@@ -1,5 +1,8 @@
 // On-device OCR with Tesseract.js (free, no API key; the image never leaves the phone).
 // The engine + English model (~a few MB) download from a CDN on first use and are cached.
+// Imported statically on purpose: a lazy chunk breaks after a redeploy when the
+// open page still references the old chunk's hashed filename.
+import { createWorker, PSM } from 'tesseract.js'
 
 let workerPromise = null
 let progressCb = null
@@ -7,7 +10,6 @@ let progressCb = null
 function getWorker() {
   if (!workerPromise) {
     workerPromise = (async () => {
-      const { createWorker, PSM } = await import('tesseract.js')
       const worker = await createWorker('eng', 1, {
         logger: (m) => progressCb?.(m),
       })
