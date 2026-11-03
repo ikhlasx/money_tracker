@@ -5,6 +5,8 @@ import TransactionLog from './TransactionLog'
 import Reports from './Reports'
 import BudgetSettings from './BudgetSettings'
 import CalendarView from './CalendarView'
+import ScreenshotImport from './ScreenshotImport'
+import { takeSharedScreenshots } from '../lib/sharedScreenshots'
 
 export default function Dashboard({ session }) {
   const [transactions, setTransactions] = useState([])
@@ -19,7 +21,26 @@ export default function Dashboard({ session }) {
   const [bankBalances, setBankBalances] = useState({ Cash: 0, IOB: 0, FED: 0, Other: 0 })
   const [cardNames, setCardNames] = useState(['Cash', 'IOB', 'FED', 'Other'])
 
+  const [importFiles, setImportFiles] = useState(null)
+  const [lastImported, setLastImported] = useState(null)
+
   useEffect(() => { fetchTransactions(); fetchCards() }, [])
+
+  // Screenshots shared from GPay via the Android share sheet.
+  useEffect(() => {
+    takeSharedScreenshots().then(files => {
+      if (files.length) { setActiveTab('transactions'); setImportFiles(files) }
+    })
+    if (window.location.search.includes('share-target')) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
+  const handleImported = (row) => {
+    fetchTransactions()
+    setLastImported(row)
+    setTimeout(() => setLastImported(cur => (cur === row ? null : cur)), 6000)
+  }
 
   const fetchCards = async () => {
     try {
@@ -208,7 +229,7 @@ export default function Dashboard({ session }) {
         {/* Tab Content */}
         {activeTab === 'transactions' && (
           <div className="animate-fade-in">
-            <TransactionForm fetchTransactions={fetchTransactions} editData={editData} setEditData={setEditData} />
+            <TransactionForm fetchTransactions={fetchTransactions} editData={editData} setEditData={setEditData} onScanScreenshots={setImportFiles} />
             <TransactionLog transactions={transactions} fetchTransactions={fetchTransactions} setEditData={setEditData} />
           </div>
         )}
@@ -262,6 +283,28 @@ export default function Dashboard({ session }) {
           </div>
         )}
       </main>
+
+      {importFiles && importFiles.length > 0 && (
+        <ScreenshotImport
+          files={importFiles}
+          transactions={transactions}
+          onClose={() => setImportFiles(null)}
+          onSaved={handleImported}
+        />
+      )}
+
+      {lastImported && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-28 lg:bottom-8 z-50 flex items-center gap-3 pl-4 pr-2 py-2 rounded-full bg-emerald-600/95 text-white shadow-xl animate-fade-in max-w-[calc(100%-32px)]">
+          <span className="material-symbols-outlined text-[18px]">check_circle</span>
+          <span className="text-body-sm truncate">Saved ₹{Number(lastImported.amount).toLocaleString()} · {lastImported.category}</span>
+          <button
+            className="px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-body-sm font-bold"
+            onClick={() => { setEditData(lastImported); setActiveTab('transactions'); setLastImported(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+          >
+            Edit
+          </button>
+        </div>
+      )}
 
       {/* Bottom Nav (Mobile) — 2 left | FAB center | 2 right */}
       <nav className="lg:hidden fixed bottom-0 w-full z-30 flex justify-around items-center px-4 py-4 bg-surface/80 backdrop-blur-2xl border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] rounded-t-3xl">

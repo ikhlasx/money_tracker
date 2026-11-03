@@ -11,7 +11,7 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export default function TransactionForm({ fetchTransactions, editData, setEditData }) {
+export default function TransactionForm({ fetchTransactions, editData, setEditData, onScanScreenshots }) {
   const [loading, setLoading] = useState(false)
   const [savedNotice, setSavedNotice] = useState(false)
   const [categories, setCategories] = useState([])
@@ -141,12 +141,34 @@ export default function TransactionForm({ fetchTransactions, editData, setEditDa
     <div className={`${cardStyle} rounded-3xl p-6 lg:p-8 relative overflow-hidden mb-8`}>
       <div className="absolute top-0 right-0 w-56 h-56 bg-white/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
-      <h2 className={`text-headline-md font-headline-md text-on-surface mb-6 relative z-10 flex items-center gap-2`}>
-        <span className={`material-symbols-outlined ${accentColor}`}>
-          {editData ? 'edit' : 'add_circle'}
-        </span>
-        {editData ? 'Edit Transaction' : 'New Transaction'}
-      </h2>
+      <div className="flex items-center justify-between gap-3 mb-6 relative z-10">
+        <h2 className="text-headline-md font-headline-md text-on-surface flex items-center gap-2">
+          <span className={`material-symbols-outlined ${accentColor}`}>
+            {editData ? 'edit' : 'add_circle'}
+          </span>
+          {editData ? 'Edit Transaction' : 'New Transaction'}
+        </h2>
+        {!editData && onScanScreenshots && (
+          <label
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-white/15 text-on-surface-variant hover:bg-white/10 cursor-pointer text-body-sm font-semibold shrink-0"
+            title="Fill from a Google Pay screenshot"
+          >
+            <span className="material-symbols-outlined text-[18px]">document_scanner</span>
+            Scan
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || [])
+                e.target.value = ''
+                if (files.length) onScanScreenshots(files)
+              }}
+            />
+          </label>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 

@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      workbox: {
+        importScripts: ['share-target-sw.js']
+      },
       manifest: {
         name: 'IMPEX MoneyTracker',
         short_name: 'MoneyTracker',
@@ -16,6 +19,19 @@ export default defineConfig({
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        // Lets the installed app appear in Android's share sheet for images.
+        share_target: {
+          action: '/share-target',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            files: [{ name: 'screenshots', accept: ['image/*'] }]
+          }
+        },
         icons: [
           {
             src: 'icon-192x192.png',
