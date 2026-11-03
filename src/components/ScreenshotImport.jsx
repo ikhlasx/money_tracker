@@ -26,6 +26,10 @@ const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * `files` items are either image Files (scanned on-device) or `{ text }` objects
+ * with already-recognised text (from the iPhone Shortcut, which uses Apple's Live Text).
+ */
 export default function ScreenshotImport({ files, transactions, onClose, onSaved }) {
   const [index, setIndex] = useState(0)
   const [categories, setCategories] = useState(null)
@@ -42,6 +46,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
   useEffect(() => { txnsRef.current = transactions }, [transactions])
 
   const file = files[index]
+  const isImage = file instanceof Blob
   const total = files.length
 
   useEffect(() => {
@@ -56,7 +61,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
   }, [])
 
   useEffect(() => {
-    if (!file) return
+    if (!(file instanceof Blob)) { setPreviewUrl(null); return }
     const url = URL.createObjectURL(file)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
@@ -78,11 +83,13 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
 
     ;(async () => {
       try {
-        const ocr = await recognizeScreenshot(file, (m) => {
-          if (cancelled) return
-          const label = m.status === 'recognizing text' ? 'Reading screenshot…' : 'Loading text reader (first time only)…'
-          setProgress({ label, pct: Math.round((m.progress || 0) * 100) })
-        })
+        const ocr = file instanceof Blob
+          ? await recognizeScreenshot(file, (m) => {
+              if (cancelled) return
+              const label = m.status === 'recognizing text' ? 'Reading screenshot…' : 'Loading text reader (first time only)…'
+              setProgress({ label, pct: Math.round((m.progress || 0) * 100) })
+            })
+          : { text: String(file.text || ''), words: [] }
         if (cancelled) return
         const p = parseGpay(ocr)
         const uncertain = new Set()
@@ -125,7 +132,9 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         setInfo({ note: p.note, bankName: p.bankName, categorySource: cat?.source || null, warnings, uncertain })
         setPhase('review')
 
-        if (uncertain.size === 0 && warnings.length === 0) {
+        // Text arriving through a link always waits for a tap, so a crafted
+        // link can never log a transaction on its own.
+        if (file instanceof Blob && uncertain.size === 0 && warnings.length === 0) {
           setCountdown(AUTO_SAVE_SECONDS)
           timerRef.current = setInterval(() => setCountdown((c) => (c > 0 ? c - 1 : 0)), 1000)
         }
@@ -195,7 +204,9 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
             <span className="material-symbols-outlined text-primary">document_scanner</span>
             <div>
               <h3 className="text-body-lg font-bold text-on-surface m-0">Import payment</h3>
-              {total > 1 && <p className="text-body-sm text-on-surface-variant m-0">Screenshot {index + 1} of {total}</p>}
+              {total > 1
+                ? <p className="text-body-sm text-on-surface-variant m-0">Screenshot {index + 1} of {total}</p>
+                : !isImage && <p className="text-body-sm text-on-surface-variant m-0">Read by iPhone — check and save</p>}
             </div>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-white/10" aria-label="Close">

@@ -6,6 +6,7 @@ import Reports from './Reports'
 import BudgetSettings from './BudgetSettings'
 import CalendarView from './CalendarView'
 import ScreenshotImport from './ScreenshotImport'
+import ScanSection from './ScanSection'
 import { takeSharedScreenshots } from '../lib/sharedScreenshots'
 
 export default function Dashboard({ session }) {
@@ -26,12 +27,19 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { fetchTransactions(); fetchCards() }, [])
 
-  // Screenshots shared from GPay via the Android share sheet.
+  // Incoming payments: Android share sheet (files stashed by the service worker)
+  // or the iPhone Shortcut, which opens /?ocr=<text read by Live Text>.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ocrText = params.get('ocr')
+    if (ocrText) {
+      setActiveTab('scan')
+      setImportFiles([{ text: ocrText }])
+    }
     takeSharedScreenshots().then(files => {
-      if (files.length) { setActiveTab('transactions'); setImportFiles(files) }
+      if (files.length) { setActiveTab('scan'); setImportFiles(files) }
     })
-    if (window.location.search.includes('share-target')) {
+    if (ocrText || params.has('share-target')) {
       window.history.replaceState(null, '', window.location.pathname)
     }
   }, [])
@@ -176,6 +184,7 @@ export default function Dashboard({ session }) {
         <nav className="flex flex-col gap-2">
           {[
             { id: 'transactions', icon: 'account_balance_wallet', label: 'Transactions' },
+            { id: 'scan',         icon: 'document_scanner',       label: 'Scan Payment' },
             { id: 'reports',      icon: 'analytics',              label: 'Reports'      },
             { id: 'settings',     icon: 'settings',               label: 'Budget Settings' },
             { id: 'calendar',     icon: 'calendar_month',         label: 'Calendar'     },
@@ -271,6 +280,12 @@ export default function Dashboard({ session }) {
           </div>
         )}
 
+        {activeTab === 'scan' && (
+          <div className="animate-fade-in">
+            <ScanSection onImport={setImportFiles} />
+          </div>
+        )}
+
         {activeTab === 'settings' && (
           <div className="animate-fade-in">
             <BudgetSettings />
@@ -322,13 +337,14 @@ export default function Dashboard({ session }) {
           </button>
         ))}
 
-        {/* Centre FAB */}
+        {/* Centre FAB — Scan payment */}
         <div className="relative -top-5">
           <button
-            className="w-14 h-14 bg-white text-surface-container-lowest rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-transform shadow-white/20"
-            onClick={() => setActiveTab('transactions')}
+            className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-transform shadow-white/20 bg-white text-surface-container-lowest ${activeTab === 'scan' ? 'ring-4 ring-white/25' : ''}`}
+            onClick={() => setActiveTab('scan')}
+            aria-label="Scan payment"
           >
-            <span className="material-symbols-outlined text-3xl">add</span>
+            <span className="material-symbols-outlined text-3xl">document_scanner</span>
           </button>
         </div>
 
