@@ -173,6 +173,7 @@ export function parseGpay({ text, words = [] }) {
       amountConfident: true,
       txn_date: parseDate(text),
       bankName: '',
+      accountSuffix: '',
       status: '',
       upiId: share[1] || '',
       isGpay: true,
@@ -232,6 +233,15 @@ export function parseGpay({ text, words = [] }) {
     if (m) bankName = m[1].trim()
   }
 
+  // Masked account/card number under the bank name, e.g. "356137XXXXXXXX67".
+  // Lines with "@" are UPI IDs (often the payee's), so they're skipped.
+  let accountSuffix = ''
+  for (const l of lines) {
+    if (l.includes('@')) continue
+    const m = l.match(/(?:[x•*]{2,})\s*(\d{2,4})(?!\d)/i)
+    if (m) { accountSuffix = m[1]; break }
+  }
+
   const upiIdx = lines.findIndex((l) => /upi transaction id/i.test(l))
   const upiId = upiIdx >= 0 ? (lines.slice(upiIdx, upiIdx + 2).join(' ').match(/\d{8,}/) || [''])[0] : ''
 
@@ -245,6 +255,7 @@ export function parseGpay({ text, words = [] }) {
     amountConfident,
     txn_date: parseDate(text),
     bankName,
+    accountSuffix,
     status,
     upiId,
     isGpay,

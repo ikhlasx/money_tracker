@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { recognizeScreenshot } from '../lib/ocr'
+import { matchAccountRule } from '../lib/accountRules'
 import { parseGpay, matchCard, matchCategory, matchFromHistory, findDuplicate, norm } from '../lib/gpayParser'
 
 const DEFAULT_CARDS = ['Cash', 'IOB', 'FED', 'Other']
@@ -113,7 +114,17 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
 
         // No bank in the text (GPay's Share button)? Use the account last used for
         // this payee, then the account of the last import.
-        let bank = matchCard(p.bankName, cards)
+        // Account rules (e.g. Federal ...2479 → FED, ...67 → Wavefed) win over name matching.
+        const rule = matchAccountRule(p.bankName, p.accountSuffix, cards)
+        let bank = rule?.card || matchCard(p.bankName, cards)
+        if (rule?.unmatched) {
+          uncertain.add('bank')
+          if (p.accountSuffix) warnings.push(`${p.bankName} account ending ${p.accountSuffix} isn't in your account rules — check the account.`)
+        }
+        if (rule && rule.card && !rule.known) {
+          uncertain.add('bank')
+          warnings.push(`Account "${rule.card}" doesn't exist yet. Add it in Budget Settings → Cards so it shows in your balances.`)
+        }
         if (!bank && !p.bankName) {
           const pn = norm(p.payee)
           const prev = pn && txnsRef.current.find((t) => norm((t.desc || '').split(' · ')[0]) === pn && cards.includes(t.bank))
@@ -141,7 +152,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
         }
 
         setForm(draft)
-        setInfo({ note: p.note, bankName: p.bankName, categorySource: cat?.source || null, warnings, uncertain })
+        setInfo({ note: p.note, bankName: p.bankName, extraBank: rule && rule.card && !rule.known ? rule.card : null, categorySource: cat?.source || null, warnings, uncertain })
         setPhase('review')
 
         // Text arriving through a link always waits for a tap, so a crafted
@@ -300,6 +311,7 @@ export default function ScreenshotImport({ files, transactions, onClose, onSaved
               <label className="flex flex-col gap-1 min-w-0">
                 <span className="text-label-caps text-on-surface-variant ml-1">Account</span>
                 <select className={`${field} appearance-none ${dropdownArrow} ${flag('bank')}`} value={form.bank} onChange={set('bank')}>
+                  {info?.extraBank && <option value={info.extraBank}>{info.extraBank} (new)</option>}
                   {cards.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
